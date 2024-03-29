@@ -18,7 +18,7 @@ RN I'M USING CONSOLE COMMANDS TO CLEAR THE SCREEEN FJDSLKF JKLF JDKALF
 
 PLSJFJKDSJF REMEMEBRE JKLJFKLD FIXX USEEE ANSI CODEESSSS
 */
-void printCPUInfo(int iter, CPUStruct *cpu_usage);
+void printCPUInfo(int iter, int samples, CPUStruct *cpu_usage);
 void printMemUtil(int iter, int samples, MemStruct *mem_usage);
 
 int main(int argc, char ** argv){
@@ -55,33 +55,20 @@ int main(int argc, char ** argv){
         printf("---------------------\n");
         printf("iteration >> %d\n", i + 1);
         getCPUUsage(i, &cpu_usage);
-        printCPUInfo(i, &cpu_usage);
+        printCPUInfo(i, samples, &cpu_usage);
         sleep(tdelay);
     }
 }
 
 // Calling it calculateCPUUtil + print would be more accurate
-void printCPUInfo(int iter, CPUStruct *cpu_usage){
-    // Ui = Ti - Ii where I is idle time... 
-    // formula is (U2 - U1)/(T2 - T1) * 100 
-    double usage_pre, usage_cur;
-    double time_pre, time_cur;
-    double cpu_util;
-
-    usage_cur = cpu_usage->cpu_usage[iter][CPUUTIL];
-    time_cur = cpu_usage->cpu_usage[iter][CPUTIME];
-
-    if (iter == 0){
-        cpu_util = (double)(usage_cur/time_cur)*100.0;
-        printf(" total cpu use: %.2f%%\n", cpu_util);
-        return;
-    }
-
-    usage_pre = cpu_usage->cpu_usage[iter - 1][CPUUTIL];
-    time_pre = cpu_usage->cpu_usage[iter - 1][CPUTIME];
-    cpu_util = (double) ((usage_cur - usage_pre)/(time_cur - time_pre)) * 100;
+void printCPUInfo(int iter, int samples, CPUStruct *cpu_usage){
     
-    printf(" total cpu use: %.2f%%\n", cpu_util);
+    for(int i = 0; i < iter + 1; i++){
+        printf(" total cpu use: %.2f%%\n", cpu_usage->cpu_usage[i][CPUUTIL]);
+    }
+    for (int i = iter + 1; i < samples; i++){
+        printf("\n");
+    }
 }
 
 void printMemUtil(int iter, int samples, MemStruct *mem_usage){
