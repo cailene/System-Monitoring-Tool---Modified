@@ -1,18 +1,29 @@
-# include <string.h>
-# include <stdlib.h>
-# include <stdio.h>
-# include <errno.h>
-# include<unistd.h>
+# include "stats_functions.h"
 
-# define CPUTIME 0
-# define CPUUTIL 1
+CPUStruct initCPUStruct (int samples){
+    // allocating memory to use CPUStruct
+    // initializing CPUStruct
+    CPUStruct myStruct;
+    myStruct.cpu_usage = (double **) malloc (sizeof(double) * samples);
+    if (myStruct.cpu_usage == NULL){
+        fprintf(stderr, "Error allocating memory for cpu usage\n");
+        exit(EXIT_FAILURE);
+    }
+    for(int i = 0; i < samples; i++){
+        myStruct.cpu_usage[i] = (double *) malloc (sizeof(double) * 2);
+        if (myStruct.cpu_usage[i] == NULL) {
+            fprintf(stderr, "Error allocating memory for cpu usage\n");
+            exit(EXIT_FAILURE);
+        }
+        myStruct.cpu_usage[i][CPUTIME] = 0.0;
+        myStruct.cpu_usage[i][CPUUTIL] = 0.0;
+    }
 
-typedef struct CPUStruct{
-    double **cpu_usage;
-}CPUStruct;
+    return myStruct;
+}
 
 void getCPUUsage(int iter, CPUStruct *cpu_usage){
-    char line[256];
+    char line[MAX_STR_LEN];
     unsigned long user, nice, system, idle, iowait, irq, softirq;
     double current_cpu_time, current_cpu_usage;
 
@@ -40,66 +51,9 @@ void getCPUUsage(int iter, CPUStruct *cpu_usage){
     cpu_usage->cpu_usage[iter][CPUUTIL] = current_cpu_usage;
 }
 
-// Calling it calculateCPUUtil + print would be more accurate
-void printCPUInfo(int iter, CPUStruct *cpu_usage){
-    // Ui = Ti - Ii where I is idle time... 
-    // formula is (U2 - U1)/(T2 - T1) * 100 
-    double usage_pre, usage_cur;
-    double time_pre, time_cur;
-    double cpu_util;
-
-    usage_cur = cpu_usage->cpu_usage[iter][CPUUTIL];
-    time_cur = cpu_usage->cpu_usage[iter][CPUTIME];
-
-    if (iter == 0){
-        cpu_util = (double)(usage_cur/time_cur)*100.0;
-        printf(" total cpu use: %.2f%%\n", cpu_util);
-        return;
+void deleteCPU(int samples, CPUStruct *cpu_usage){
+    for (int i = 0; i < samples; i++) {
+        free(cpu_usage->cpu_usage[i]);
     }
-
-    usage_pre = cpu_usage->cpu_usage[iter - 1][CPUUTIL];
-
-    time_pre = cpu_usage->cpu_usage[iter - 1][CPUTIME];
-
-    cpu_util = (double) ((usage_cur - usage_pre)/time_cur - time_pre) * 100;
-    
-    printf(" total cpu use: %.2f%%\n", cpu_util);
-}
-
-CPUStruct initCPUStruct (int samples){
-    // allocating memory to use CPUStruct
-    // initializing CPUStruct
-    CPUStruct myStruct;
-    myStruct.cpu_usage = (double **) malloc (sizeof(double) * samples);
-    if (myStruct.cpu_usage == NULL){
-        fprintf(stderr, "Error allocating memory for cpu usage\n");
-        exit(EXIT_FAILURE);
-    }
-    for(int i = 0; i < samples; i++){
-        myStruct.cpu_usage[i] = (double *) malloc (sizeof(double) * 2);
-        if (myStruct.cpu_usage[i] == NULL) {
-            fprintf(stderr, "Error allocating memory for cpu usage\n");
-            exit(EXIT_FAILURE);
-        }
-        myStruct.cpu_usage[i][CPUTIME] = 0.0;
-        myStruct.cpu_usage[i][CPUUTIL] = 0.0;
-    }
-
-    return myStruct;
-}
-
-int main(int argc, char ** argv){
-    int samples = 5, tdelay = 1;
-    CPUStruct cpu_usage = initCPUStruct(samples + 1);
-
-    for (int i = 0; i < samples; i++){
-        system("clear");
-        printf("Nbr samples: %d\n", samples);
-        printf("every %d seconds\n", tdelay);
-        printf("---------------------\n");
-        printf("iteration >> %d\n", i + 1);
-        getCPUUsage(i, &cpu_usage);
-        printCPUInfo(i, &cpu_usage);
-        sleep(tdelay);
-    }
+    free(cpu_usage->cpu_usage);
 }
