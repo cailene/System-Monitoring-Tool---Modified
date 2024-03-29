@@ -9,4 +9,5 @@
 
 int main(int argc, char ** argv);
 void printCPUInfo(int iter, CPUStruct *cpu_usage);
+void printMemUtil(int iter, int samples, MemStruct *mem_usage);
 #endif

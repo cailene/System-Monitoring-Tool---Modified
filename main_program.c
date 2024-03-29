@@ -19,6 +19,7 @@ RN I'M USING CONSOLE COMMANDS TO CLEAR THE SCREEEN FJDSLKF JKLF JDKALF
 PLSJFJKDSJF REMEMEBRE JKLJFKLD FIXX USEEE ANSI CODEESSSS
 */
 void printCPUInfo(int iter, CPUStruct *cpu_usage);
+void printMemUtil(int iter, int samples, MemStruct *mem_usage);
 
 int main(int argc, char ** argv){
     int samples = 5, tdelay = 1;
@@ -40,12 +41,17 @@ int main(int argc, char ** argv){
         }
     }
 
-    CPUStruct cpu_usage = initCPUStruct(samples + 1);
+    CPUStruct cpu_usage = initCPUStruct(samples);
+    MemStruct mem_usage = initMemStruct(samples);
+
 
     for (int i = 0; i < samples; i++){
         system("clear");
         printf("Nbr samples: %d\n", samples);
         printf("every %d seconds\n", tdelay);
+        printf("---------------------\n");
+        getMemUsage(i, &mem_usage);
+        printMemUtil(i, samples, &mem_usage);
         printf("---------------------\n");
         printf("iteration >> %d\n", i + 1);
         getCPUUsage(i, &cpu_usage);
@@ -76,4 +82,23 @@ void printCPUInfo(int iter, CPUStruct *cpu_usage){
     cpu_util = (double) ((usage_cur - usage_pre)/(time_cur - time_pre)) * 100;
     
     printf(" total cpu use: %.2f%%\n", cpu_util);
+}
+
+void printMemUtil(int iter, int samples, MemStruct *mem_usage){
+    // want to print from 0 to iter
+    // then want to print blanks from iter to samples
+    // so suppose we have samples = 5, iter = 2
+    // print 0 1 2
+    // print blanks 3 4
+
+    for (int i = 0; i < iter + 1; i++){
+        printf("%.2f GB / %.2f GB -- %.2f GB / %.2f GB\n", 
+                mem_usage->mem_usage[i][MEMUSED], 
+                mem_usage->mem_usage[i][MEMTOT], 
+                mem_usage->mem_usage[i][MEMUSEDVIRT], 
+                mem_usage->mem_usage[i][MEMTOTVIRT]);
+    }
+    for (int i = iter + 1; i < samples; i++){
+        printf("\n");
+    }
 }
