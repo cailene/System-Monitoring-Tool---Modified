@@ -6,7 +6,8 @@
 # include <sys/sysinfo.h>
 
 # define CPUTIME 0
-# define CPUUTIL 1
+# define CPUUSE  1
+# define CPUUTIL 2
 
 # define MEMTOT       0
 # define MEMUSED      1
@@ -32,6 +33,7 @@ CPUStruct initCPUStruct (int samples);
 
 void getMemUsage(int iter, MemStruct *mem_usage);
 void getCPUUsage(int iter, CPUStruct *cpu_usage);
+void calculateCPUUtil(int iter, CPUStruct *cpu_usage);
 
 /* Frees memory allocated for CPU info
 */

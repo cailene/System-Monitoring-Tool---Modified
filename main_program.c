@@ -8,9 +8,20 @@ gcc -Wall -Werror stats_functions.c main_program.c -o stats
 ./stats with optional [num samples][tdelay]
 */
 /*
+    ___    _   _______ ____   ______          __     ____                                                            
+   /   |  / | / / ___//  _/  / ____/___  ____/ /__  / / /                                                            
+  / /| | /  |/ /\__ \ / /   / /   / __ \/ __  / _ \/ / /                                                             
+ / ___ |/ /|  /___/ // /   / /___/ /_/ / /_/ /  __/_/_/                                                              
+/_/ _|_/_/_|_//____/___/   \____/\____/\__,_/\___(_|_)   _   _______ ____  __    ______                      ________
+   / __ \/ ____/___ ___  ____ _   _____     / ____/___  / | / / ___// __ \/ /   / ____/  _________ ___  ____/ / / / /
+  / /_/ / __/ / __ `__ \/ __ \ | / / _ \   / /   / __ \/  |/ /\__ \/ / / / /   / __/    / ___/ __ `__ \/ __  / / / / 
+ / _, _/ /___/ / / / / / /_/ / |/ /  __/  / /___/ /_/ / /|  /___/ / /_/ / /___/ /___   / /__/ / / / / / /_/ /_/_/_/  
+/_/ |_/_____/_/ /_/ /_/\____/|___/\___/   \____/\____/_/ |_//____/\____/_____/_____/   \___/_/ /_/ /_/\__,_(_|_|_)   
+                                                                                                                     
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 RE  MEMERB TO USE ANSI CODESSSSS FJKDSL FJKLDS JFKD!!!!!!!
-
+AAAAANNNNSSSSSIIIII CODESSSSS
+AAANNNSSSIII CODESSS
 !!!!!!!!!!!!!!!!!!!!!!
 FJLS JFSLKF
 RN I'M USING CONSOLE COMMANDS TO CLEAR THE SCREEEN FJDSLKF JKLF JDKALF
@@ -18,8 +29,13 @@ RN I'M USING CONSOLE COMMANDS TO CLEAR THE SCREEEN FJDSLKF JKLF JDKALF
 
 PLSJFJKDSJF REMEMEBRE JKLJFKLD FIXX USEEE ANSI CODEESSSS
 */
-void printCPUInfo(int iter, CPUStruct *cpu_usage);
+void printCPUInfo(int iter, int samples, CPUStruct *cpu_usage);
 void printMemUtil(int iter, int samples, MemStruct *mem_usage);
+void printCPUInfoGraphics(int iter, int samples, CPUStruct *cpu_usage);
+void printMemUtilGraphics(int iter, int samples, MemStruct *mem_usage);
+
+/*helper*/
+int getdifference(double cur_mem, double pre_mem, int *difference);
 
 int main(int argc, char ** argv){
     int samples = 5, tdelay = 1;
@@ -46,42 +62,94 @@ int main(int argc, char ** argv){
 
 
     for (int i = 0; i < samples; i++){
+        /* OVBER HERREJEKFLJAKLJFKLDJKHERReEEEREEERere */
         system("clear");
+        /* FIZXX TJISSSSSSSS*/
         printf("Nbr samples: %d\n", samples);
         printf("every %d seconds\n", tdelay);
         printf("---------------------\n");
         getMemUsage(i, &mem_usage);
-        printMemUtil(i, samples, &mem_usage);
+        printMemUtilGraphics(i, samples, &mem_usage);
         printf("---------------------\n");
         printf("iteration >> %d\n", i + 1);
         getCPUUsage(i, &cpu_usage);
-        printCPUInfo(i, &cpu_usage);
+        printCPUInfoGraphics(i, samples, &cpu_usage);
         sleep(tdelay);
     }
 }
 
-// Calling it calculateCPUUtil + print would be more accurate
-void printCPUInfo(int iter, CPUStruct *cpu_usage){
-    // Ui = Ti - Ii where I is idle time... 
-    // formula is (U2 - U1)/(T2 - T1) * 100 
-    double usage_pre, usage_cur;
-    double time_pre, time_cur;
-    double cpu_util;
+void printCPUInfoGraphics(int iter, int samples, CPUStruct *cpu_usage){
+    double util;
+    int util_g;
 
-    usage_cur = cpu_usage->cpu_usage[iter][CPUUTIL];
-    time_cur = cpu_usage->cpu_usage[iter][CPUTIME];
-
-    if (iter == 0){
-        cpu_util = (double)(usage_cur/time_cur)*100.0;
-        printf(" total cpu use: %.2f%%\n", cpu_util);
-        return;
+    printf("total cpu use: %.2f\n", cpu_usage->cpu_usage[iter][CPUUTIL]);
+    for(int i = 0; i < iter + 1; i++){
+        util = cpu_usage->cpu_usage[i][CPUUTIL];
+        util_g = (int) util;
+        if (util == 0){
+            util_g += 2;
+        }else{
+            util_g += 4;
+        }
+        printf(" ");
+        for (int i = 0; i < util_g; i++){
+            printf("%s", PERCPOS);
+        }
+        printf(" %.2f%%\n", util);
     }
+    for (int i = iter + 1; i < samples; i++){
+        printf("\n");
+    }
+}
 
-    usage_pre = cpu_usage->cpu_usage[iter - 1][CPUUTIL];
-    time_pre = cpu_usage->cpu_usage[iter - 1][CPUTIME];
-    cpu_util = (double) ((usage_cur - usage_pre)/(time_cur - time_pre)) * 100;
+void printMemUtilGraphics(int iter, int samples, MemStruct *mem_usage){
+    int util_g = 0;
+    double cur_mem, pre_mem;
+    int difference; 
+    for (int i = 0; i < iter + 1; i++){
+        printf("%.2f GB / %.2f GB -- %.2f GB / %.2f GB    %s", 
+                mem_usage->mem_usage[i][MEMUSED], 
+                mem_usage->mem_usage[i][MEMTOT], 
+                mem_usage->mem_usage[i][MEMUSEDVIRT], 
+                mem_usage->mem_usage[i][MEMTOTVIRT],
+                PERCPOS);
+        if (i == 0){
+            // here it's printing the used virtual memory
+            printf("%s %.2f (%.2f)\n", NEUT, (double)ZERO, mem_usage->mem_usage[i][MEMUSEDVIRT]);
+        }else{
+            // getting the difference between the current sample and previous by using virt used memory
+            cur_mem = mem_usage->mem_usage[i][MEMUSEDVIRT];
+            pre_mem = mem_usage->mem_usage[i - 1][MEMUSEDVIRT];
+            util_g = getdifference(cur_mem, pre_mem, &difference);
+
+            if (difference > 0){
+                for (int j = 0; j < util_g; j++){
+                    printf("#");
+                }
+                printf("*");
+            }else{
+                // difference = -1
+                for (int j = 0; j < util_g; j++){
+                    printf(":");
+                }
+                printf("@");
+            }
+            printf(" %.2f (%.2f)\n", (double) (util_g / 100), mem_usage->mem_usage[i][MEMUSEDVIRT]);
+        }
+    }
+    for (int i = iter + 1; i < samples; i++){
+        printf("\n");
+    }
+}
+
+void printCPUInfo(int iter, int samples, CPUStruct *cpu_usage){
     
-    printf(" total cpu use: %.2f%%\n", cpu_util);
+    for(int i = 0; i < iter + 1; i++){
+        printf(" total cpu use: %.2f%%\n", cpu_usage->cpu_usage[i][CPUUTIL]);
+    }
+    for (int i = iter + 1; i < samples; i++){
+        printf("\n");
+    }
 }
 
 void printMemUtil(int iter, int samples, MemStruct *mem_usage){
@@ -101,4 +169,17 @@ void printMemUtil(int iter, int samples, MemStruct *mem_usage){
     for (int i = iter + 1; i < samples; i++){
         printf("\n");
     }
+}
+
+int getdifference(double cur_mem, double pre_mem, int *difference){
+    double diff = cur_mem - pre_mem;
+
+    if (diff >= 0){
+        // positive difference 
+        *difference = 1;
+    }else{
+        // negative difference
+        *difference = -1;
+    }
+    return (int) (diff * 100); 
 }

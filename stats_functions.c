@@ -62,12 +62,13 @@ CPUStruct initCPUStruct (int samples){
         exit(EXIT_FAILURE);
     }
     for(int i = 0; i < samples; i++){
-        myStruct.cpu_usage[i] = (double *) malloc (sizeof(double) * 2);
+        myStruct.cpu_usage[i] = (double *) malloc (sizeof(double) * 3);
         if (myStruct.cpu_usage[i] == NULL) {
             fprintf(stderr, "Error allocating memory for cpu usage\n");
             exit(EXIT_FAILURE);
         }
         myStruct.cpu_usage[i][CPUTIME] = 0.0;
+        myStruct.cpu_usage[i][CPUUSE] = 0.0;
         myStruct.cpu_usage[i][CPUUTIL] = 0.0;
     }
 
@@ -100,7 +101,32 @@ void getCPUUsage(int iter, CPUStruct *cpu_usage){
     current_cpu_usage = current_cpu_time - idle;
 
     cpu_usage->cpu_usage[iter][CPUTIME] = current_cpu_time;
-    cpu_usage->cpu_usage[iter][CPUUTIL] = current_cpu_usage;
+    cpu_usage->cpu_usage[iter][CPUUSE] = current_cpu_usage;
+
+    calculateCPUUtil(iter, cpu_usage);
+}
+
+/* helper */
+void calculateCPUUtil(int iter, CPUStruct *cpu_usage){
+    // Ui = Ti - Ii where I is idle time... 
+    // formula is (U2 - U1)/(T2 - T1) * 100 
+    double usage_pre, usage_cur;
+    double time_pre, time_cur;
+    double cpu_util;
+
+    usage_cur = cpu_usage->cpu_usage[iter][CPUUSE];
+    time_cur = cpu_usage->cpu_usage[iter][CPUTIME];
+
+    if (iter == 0){
+        cpu_util = (double)(usage_cur/time_cur)*100.0;
+        cpu_usage->cpu_usage[iter][CPUUTIL] = cpu_util;
+        return;
+    }
+
+    usage_pre = cpu_usage->cpu_usage[iter - 1][CPUUSE];
+    time_pre = cpu_usage->cpu_usage[iter - 1][CPUTIME];
+    cpu_util = (double) ((usage_cur - usage_pre)/(time_cur - time_pre)) * 100;
+    cpu_usage->cpu_usage[iter][CPUUTIL] = cpu_util;
 }
 
 void deleteCPU(int samples, CPUStruct *cpu_usage){
