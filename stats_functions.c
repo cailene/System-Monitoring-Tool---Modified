@@ -52,7 +52,7 @@ void printCPUInfo(int iter, CPUStruct *cpu_usage){
     time_cur = cpu_usage->cpu_usage[iter][CPUTIME];
 
     if (iter == 0){
-        cpu_util = ((double)(usage_cur)/time_cur)*100.0;
+        cpu_util = (double)(usage_cur/time_cur)*100.0;
         printf(" total cpu use: %.2f%%\n", cpu_util);
         return;
     }
@@ -61,7 +61,7 @@ void printCPUInfo(int iter, CPUStruct *cpu_usage){
 
     time_pre = cpu_usage->cpu_usage[iter - 1][CPUTIME];
 
-    cpu_util = (double) (usage_cur - usage_pre)/(time_cur - time_pre) * 100;
+    cpu_util = (double) ((usage_cur - usage_pre)/time_cur - time_pre) * 100;
     
     printf(" total cpu use: %.2f%%\n", cpu_util);
 }
