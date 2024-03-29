@@ -20,6 +20,7 @@ PLSJFJKDSJF REMEMEBRE JKLJFKLD FIXX USEEE ANSI CODEESSSS
 */
 void printCPUInfo(int iter, int samples, CPUStruct *cpu_usage);
 void printMemUtil(int iter, int samples, MemStruct *mem_usage);
+void printCPUInfoGraphics(int iter, int samples, CPUStruct *cpu_usage);
 
 int main(int argc, char ** argv){
     int samples = 5, tdelay = 1;
@@ -55,12 +56,34 @@ int main(int argc, char ** argv){
         printf("---------------------\n");
         printf("iteration >> %d\n", i + 1);
         getCPUUsage(i, &cpu_usage);
-        printCPUInfo(i, samples, &cpu_usage);
+        printCPUInfoGraphics(i, samples, &cpu_usage);
         sleep(tdelay);
     }
 }
 
-// Calling it calculateCPUUtil + print would be more accurate
+void printCPUInfoGraphics(int iter, int samples, CPUStruct *cpu_usage){
+    double util;
+    int util_g;
+
+    for(int i = 0; i < iter + 1; i++){
+        util = cpu_usage->cpu_usage[i][CPUUTIL];
+        util_g = (int) util;
+        printf(" total cpu use: %.2f%%", util);
+        if (util == 0){
+            util_g += 2;
+        }else{
+            util_g += 3;
+        }
+        for (int i = 0; i < util_g; i++){
+            printf("%s", CPUGRAPHICS);
+        }
+        printf("\n");
+    }
+    for (int i = iter + 1; i < samples; i++){
+        printf("\n");
+    }
+}
+
 void printCPUInfo(int iter, int samples, CPUStruct *cpu_usage){
     
     for(int i = 0; i < iter + 1; i++){
