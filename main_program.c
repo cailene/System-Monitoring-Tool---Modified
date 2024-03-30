@@ -60,10 +60,11 @@ int main(int argc, char ** argv){
     CPUStruct cpu_usage = initCPUStruct(samples);
     MemStruct mem_usage = initMemStruct(samples);
 
-
+    printf(CLEAR_SCREEN);
     for (int i = 0; i < samples; i++){
         /* OVBER HERREJEKFLJAKLJFKLDJKHERReEEEREEERere */
-        system("clear");
+        // system("clear");
+        printf(CLEAR_TO_HOME);
         /* FIZXX TJISSSSSSSS*/
         printf("Nbr samples: %d\n", samples);
         printf("every %d seconds\n", tdelay);
@@ -121,6 +122,7 @@ void printMemUtilGraphics(int iter, int samples, MemStruct *mem_usage){
             cur_mem = mem_usage->mem_usage[i][MEMUSEDVIRT];
             pre_mem = mem_usage->mem_usage[i - 1][MEMUSEDVIRT];
             util_g = getdifference(cur_mem, pre_mem, &difference);
+            printf("difference is: %d = %f ", util_g, cur_mem - pre_mem);
 
             if (difference > 0){
                 for (int j = 0; j < util_g; j++){

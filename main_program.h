@@ -14,6 +14,8 @@
 
 # define ZERO 0
 
+# define CLEAR_TO_HOME "\033[H"
+# define CLEAR_SCREEN  "\033[2J"
 
 # include "stats_functions.h"
 
