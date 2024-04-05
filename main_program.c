@@ -46,61 +46,207 @@ RN I'M USING CONSOLE COMMANDS TO CLEAR THE SCREEEN FJDSLKF JKLF JDKALF
 
 PLSJFJKDSJF REMEMEBRE JKLJFKLD FIXX USEEE ANSI CODEESSSS
 */
-void printCPUInfo(int iter, int samples, CPUStruct *cpu_usage);
+void printCPUInfo(int iter, int samples, CPUStruct *cpu_usage, SystemStats *stats);
 void printMemUtil(int iter, int samples, MemStruct *mem_usage);
 void printCPUInfoGraphics(int iter, int samples, CPUStruct *cpu_usage);
 void printMemUtilGraphics(int iter, int samples, MemStruct *mem_usage);
-void myPipes(int iter, int samples, int mem_utilsF, int user_F, int cpu_utilsF, MemStruct *mem_usage, CPUStruct *cpu_usage);
+
+void printCPUCores(SystemStats *stats);
+void printSysInfo(SystemStats *stats);
+void printRunningParam(SystemStats *stats, int num_samples, int tdelay);
+
+void myPipes(int iter, int samples, int system_flag, int user_flag, int cpu_flag, int graphics_flag, MemStruct *mem_usage, CPUStruct *cpu_usage, SystemStats *stats);
 
 /*helper*/
 int getdifference(double cur_mem, double pre_mem, int *difference);
+void Message();
 
 int main(int argc, char ** argv){
-    int samples = 5, tdelay = 1;
+    int option;
+    int system_flag = 0, cpu_flag = 0, user_flag = 0, sequential_flag = 0, graphics_flag = 0, samples = 10, tdelay = 1;
+    SystemStats myStats;
 
-    if (argc > 3){
-        printf("usage: ./prog [num samples] [time delay]\n");
+    // Define long options for command-line arguments
+    static struct option long_options[] = {
+        {"system", no_argument, 0, 's'},
+        {"user", no_argument, 0, 'u'},
+        {"sequential", no_argument, 0, 'q'},
+        {"graphics", no_argument, 0, 'g'},
+        {"samples", required_argument, NULL, 'n'},
+        {"tdelay", required_argument, NULL, 't'},
+        {">", required_argument, NULL, '>'},
+        {NULL, 0, NULL, 0}
+    };
+
+    // Parse command-line arguments using getopt_long
+    while ((option = getopt_long(argc, argv, "suqgn:t:>:", long_options, NULL)) != -1) {
+        switch (option) {
+            case 's':
+                system_flag = 1;
+                cpu_flag = 1;
+                break;
+            case 'u':
+                user_flag = 1;
+                break;
+            case 'q':
+                sequential_flag = 1;
+                break;
+            case 'g':
+                graphics_flag = 1;
+                break;
+            case 'n':
+                // num_samples = atoi(optarg);
+                if (sscanf (optarg, "%i", &samples) != 1){
+                    fprintf(stderr, "error - input not an integer");
+                    return 1;
+                }
+                break;
+            case 't':
+                // tdelay = atoi(optarg);
+                if (sscanf (optarg, "%i", &tdelay) != 1){
+                    fprintf(stderr, "error - input not an integer");
+                    return 1;
+                }
+                break;
+            case '?':
+            default:
+                Message();
+                exit(EXIT_FAILURE);
+        }
+    }
+
+    // Check for additional arguments for number of samples and tdelay
+    if (optind < argc) {
+        // samples = atoi(argv[optind]);
+        if (sscanf (argv[optind], "%i", &samples) != 1){
+            fprintf(stderr, "error - input not an integer");
+            return 1;
+        }
+        optind++;
+    }
+
+    if (optind < argc) {
+        // tdelay = atoi(argv[optind]);
+        if (sscanf (argv[optind], "%i", &tdelay) != 1){
+            fprintf(stderr, "error - input not an integer");
+            return 1;
+        }
+    }
+
+    if (!user_flag && ! system_flag){
+        user_flag = 1;
+        system_flag = 1;
+        cpu_flag = 1;
+    }
+
+    // if (sequential_flag){
+    //     printf("print sequentially\n");
+    //     if (user_flag)
+    //     {
+    //         printf("print only user usage in seq\n");
+    //     }
+    //     if (system_flag){
+    //         printf("print only system usage in seq\n");
+    //         if (graphics_flag){
+    //             printf("also print graphics");
+    //         }
+    //     }
+    // }
+
+// else{}
+// 
+    CPUStruct cpu_usage = initCPUStruct(samples);
+    if (cpu_usage.cpu_usage == NULL){
         return 1;
     }
-    if (argc > 2){
-        if (sscanf (argv[2], "%i", &tdelay) != 1){
-            fprintf(stderr, "error - input not an integer");
-            return 1;
-        }
-    }
-    if (argc > 1){
-        if (sscanf (argv[1], "%i", &samples) != 1){
-            fprintf(stderr, "error - input not an integer");
-            return 1;
-        }
+    MemStruct mem_usage = initMemStruct(samples);
+    if (mem_usage.mem_usage == NULL){
+        return 1;
     }
 
-    CPUStruct cpu_usage = initCPUStruct(samples);
-    MemStruct mem_usage = initMemStruct(samples);
+    printf(CLEAR_SCREEN);
+    for (int i = 0; i < samples; i++){
+        printf(CLEAR_TO_HOME);
+        myStats = initSystemStats();
+
+        printRunningParam(&myStats, samples, tdelay);
+        myPipes(i, samples, 1, 1, 1, 1, &mem_usage, &cpu_usage, &myStats);
+        printSysInfo(&myStats);
+        sleep(tdelay);
+    }
+    
+    // else if (user_flag)
+    // {
+    //     printf("print only user usage\n");
+    // }
+    // else if (system_flag){
+    //     printf("print only system usage\n");
+    //     if (graphics_flag){
+    //         printf("also print graphics");
+    //     }
+    // }
 
     // printf(CLEAR_SCREEN);
     // for (int i = 0; i < samples; i++){
     //     printf(CLEAR_TO_HOME);
     //     printf("Nbr samples: %d\n", samples);
     //     printf("every %d seconds\n", tdelay);
-    //     printf("---------------------\n");
-    //     myPipes(i, samples, 0, 1, 0, &mem_usage, &cpu_usage);
+    //     printf("---------------------------------------\n");
+    //     myPipes(i, samples, 1, 1, 1, &mem_usage, &cpu_usage);
     //     sleep(tdelay);
     // }
-    printf(CLEAR_SCREEN);
-    for (int i = 0; i < samples; i++){
-        printf(CLEAR_TO_HOME);
-        printf("---------------------\n");
-        myPipes(i, samples, 1, 1, 1, &mem_usage, &cpu_usage);
-        sleep(tdelay);
-    }
+    
+    deleteCPU(samples, &cpu_usage);
+    deleteMem(samples, &mem_usage);
+
+    return 0;
+}
+
+// Function to display a message for invalid commands
+void Message() {
+    printf("Valid commands: --system, --user, --sequential, --samples N, --tdelay\n");
+}
+
+// // Function to print CPU information
+// void printCPUCores(SystemStats *stats){
+//     printf("Number of CPU cores: %d\n", stats->cpu_cores);
+//     // printf("%s", stats->header);
+// }
+
+// Function to print system information
+void printSysInfo(SystemStats *stats){
+    printf("### System Information ###  \n");
+    printf("System Name: %s\n", stats->sys_info[0]);
+    printf("Machine Name: %s\n", stats->sys_info[1]);
+    printf("Version: %s\n", stats->sys_info[2]);
+    printf("Release: %s\n", stats->sys_info[3]);
+    printf("Architecture: %s\n", stats->sys_info[4]);
+    printf("System running since last reboot: ");
+
+    //printint uptime
+    printf("%d days, %02d:%02d:%02d (%02d:%02d:%02d)\n",
+                                stats->uptime[3], stats->uptime[2], 
+                                stats->uptime[1], stats->uptime[0], 
+                                (stats->uptime[3])*24 + stats->uptime[2], 
+                                stats->uptime[1], stats->uptime[0]);
+    // printf("%s", stats->header);
+}
+
+// Function to print running parameters
+void printRunningParam(SystemStats *stats, int num_samples, int tdelay){
+    printf("Nbr of samples: %d -- every %d secs\n", num_samples, tdelay);
+    printf("Memory Self-Utilization: %ld KB\n", stats->self_mem_utl);
+    printf("%s", stats->header);
 }
 
 void printCPUInfoGraphics(int iter, int samples, CPUStruct *cpu_usage){
     double util;
     int util_g;
 
-    printf("total cpu use: %.2f\n", cpu_usage->cpu_usage[iter][CPUUTIL]);
+    // printf("Number of CPU cores: %d\n", stats->cpu_cores);
+    // printf("total cpu use: %.2f\n", cpu_usage->cpu_usage[iter][CPUUTIL]);
+
+    // printCPUInfo(iter, samples, cpu_usage, stats);
     for(int i = 0; i < iter + 1; i++){
         util = cpu_usage->cpu_usage[i][CPUUTIL];
         util_g = (int) util;
@@ -109,7 +255,7 @@ void printCPUInfoGraphics(int iter, int samples, CPUStruct *cpu_usage){
         }else{
             util_g += 4;
         }
-        printf(" ");
+        printf("    ");
         for (int i = 0; i < util_g; i++){
             printf("%s", PERCPOS);
         }
@@ -118,12 +264,15 @@ void printCPUInfoGraphics(int iter, int samples, CPUStruct *cpu_usage){
     for (int i = iter + 1; i < samples; i++){
         printf("\n");
     }
+    // printf("---------------------------------------\n");
 }
 
 void printMemUtilGraphics(int iter, int samples, MemStruct *mem_usage){
     int util_g = 0;
     double cur_mem, pre_mem;
     int difference; 
+
+    printf("### Memory ### (Phys.Used/Tot -- Virtual Used/Tot)\n");
     for (int i = 0; i < iter + 1; i++){
         printf("%.2f GB / %.2f GB -- %.2f GB / %.2f GB    %s", 
                 mem_usage->mem_usage[i][MEMUSED], 
@@ -139,7 +288,7 @@ void printMemUtilGraphics(int iter, int samples, MemStruct *mem_usage){
             cur_mem = mem_usage->mem_usage[i][MEMUSEDVIRT];
             pre_mem = mem_usage->mem_usage[i - 1][MEMUSEDVIRT];
             util_g = getdifference(cur_mem, pre_mem, &difference);
-            printf("difference is: %d = %f ", util_g, cur_mem - pre_mem);
+            // printf("difference is: %d = %f ", util_g, cur_mem - pre_mem);
 
             if (difference > 0){
                 for (int j = 0; j < util_g; j++){
@@ -159,9 +308,10 @@ void printMemUtilGraphics(int iter, int samples, MemStruct *mem_usage){
     for (int i = iter + 1; i < samples; i++){
         printf("\n");
     }
+    printf("---------------------------------------\n");
 }
 
-void printCPUInfo(int iter, int samples, CPUStruct *cpu_usage){
+void printCPUInfo(int iter, int samples, CPUStruct *cpu_usage, SystemStats *stats){
     
     // for(int i = 0; i < iter + 1; i++){
     //     printf(" total cpu use: %.2f%%\n", cpu_usage->cpu_usage[i][CPUUTIL]);
@@ -169,6 +319,7 @@ void printCPUInfo(int iter, int samples, CPUStruct *cpu_usage){
     // for (int i = iter + 1; i < samples; i++){
     //     printf("\n");
     // }
+    printf("Number of CPU cores: %d\n", stats->cpu_cores);
     printf(" total cpu use: %.2f%%\n", cpu_usage->cpu_usage[iter][CPUUTIL]);
 }
 
@@ -178,7 +329,7 @@ void printMemUtil(int iter, int samples, MemStruct *mem_usage){
     // so suppose we have samples = 5, iter = 2
     // print 0 1 2
     // print blanks 3 4
-
+    printf("### Memory ### (Phys.Used/Tot -- Virtual Used/Tot)\n");
     for (int i = 0; i < iter + 1; i++){
         printf("%.2f GB / %.2f GB -- %.2f GB / %.2f GB\n", 
                 mem_usage->mem_usage[i][MEMUSED], 
@@ -189,6 +340,7 @@ void printMemUtil(int iter, int samples, MemStruct *mem_usage){
     for (int i = iter + 1; i < samples; i++){
         printf("\n");
     }
+    printf("---------------------------------------\n");
 }
 
 int getdifference(double cur_mem, double pre_mem, int *difference){
@@ -204,12 +356,12 @@ int getdifference(double cur_mem, double pre_mem, int *difference){
     return (int) (diff * 100); 
 }
 
-void myPipes(int iter, int samples, int mem_utilsF, int user_F, int cpu_utilsF, MemStruct *mem_usage, CPUStruct *cpu_usage){
+void myPipes(int iter, int samples, int system_flag, int user_flag, int cpu_flag, int graphics_flag, MemStruct *mem_usage, CPUStruct *cpu_usage, SystemStats *stats){
     int memFD[2];
     int userFD[2];
     int cpuFD[2];
 
-    if (mem_utilsF){
+    if (system_flag){
         if (pipe(memFD) == -1){
             perror("PIPE MEM");
             exit(EXIT_FAILURE);
@@ -248,11 +400,15 @@ void myPipes(int iter, int samples, int mem_utilsF, int user_F, int cpu_utilsF, 
             wait(NULL);
             
             storeMemUsage(iter, new_mem_usage, mem_usage);
-            printMemUtil(iter, samples, mem_usage);
+            if (graphics_flag){
+                printMemUtilGraphics(iter, samples, mem_usage);
+            }else{
+                printMemUtil(iter, samples, mem_usage);
+            }
         }
     }
 
-    if (user_F) {
+    if (user_flag) {
         if (pipe(userFD) == -1) {
             perror("PIPE USER");
             exit(EXIT_FAILURE);
@@ -280,9 +436,12 @@ void myPipes(int iter, int samples, int mem_utilsF, int user_F, int cpu_utilsF, 
             char buffer[MAX_STR_LEN];
             ssize_t bytesRead;
             
+            printf("### Sessions/users ### \n");
+
             if ((bytesRead = read(userFD[0], buffer, MAX_STR_LEN)) > 0){
                 printf("%.*s", (int)bytesRead, buffer);
             }
+            printf("---------------------------------------\n");
 
             if (bytesRead <= 0) {
                 fprintf(stderr, "Error reading from pipe\n");
@@ -293,7 +452,7 @@ void myPipes(int iter, int samples, int mem_utilsF, int user_F, int cpu_utilsF, 
         }
     }
     
-    if (cpu_utilsF){
+    if (cpu_flag){
         if (pipe(cpuFD) == -1){
             perror("PIPE CPU");
             exit(EXIT_FAILURE);
@@ -326,7 +485,12 @@ void myPipes(int iter, int samples, int mem_utilsF, int user_F, int cpu_utilsF, 
             wait(NULL);
 
             storeCPUUsage(iter, new_cpu, cpu_usage);
-            printCPUInfo(iter, samples, cpu_usage);
+            
+            printCPUInfo(iter, samples, cpu_usage, stats);
+            if (graphics_flag){
+                printCPUInfoGraphics(iter, samples, cpu_usage);
+            }
+            printf("---------------------------------------\n");
         }
     }
 }

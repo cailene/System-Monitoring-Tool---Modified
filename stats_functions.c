@@ -1,6 +1,97 @@
 # include "stats_functions.h"
 
 
+SystemStats initSystemStats(){
+    SystemStats stats;
+
+    stats.header = "---------------------------------------\n";
+    getUptime(&stats);
+    getSysInfo(&stats);
+    getCPUCores(&stats);
+    getSelfMemUtl(&stats);
+
+    return stats;
+}
+
+// Function to get system uptime
+void getUptime(SystemStats *stats){
+    double uptime;
+    FILE *uptimeFile = NULL;
+    
+    uptimeFile = fopen("/proc/uptime", "r");
+    if (uptimeFile == NULL) {
+        perror("Error getting uptime");
+    }
+
+    fscanf(uptimeFile, "%lf", &uptime);
+    fclose(uptimeFile);
+
+    int days = (int)(uptime /(60*60*24));
+    int hours = (int)((uptime-days * (60*60*24)) / (60*60));
+    int minutes = (int)((uptime-days * (60*60*24) - hours * (60*60)) / 60);
+    int seconds = (int)(uptime-days * (60*60*24) - hours * (60*60) - minutes * 60);
+
+    stats->uptime[0] = seconds;
+    stats->uptime[1] = minutes;
+    stats->uptime[2] = hours;
+    stats->uptime[3] = days;
+
+}
+
+// Function to get self memory utilization
+void getSelfMemUtl(SystemStats *stats){
+    struct rusage usage;
+    getrusage(RUSAGE_SELF, &usage);
+    stats->self_mem_utl = usage.ru_maxrss;
+}
+
+// Function to get system information
+void getSysInfo(SystemStats *stats) {
+    struct utsname buffer;
+
+    errno = 0;
+    if (uname(&buffer) < 0) {
+        perror("Error getting system information");
+        exit(EXIT_FAILURE);
+    }
+
+    strncpy(stats->sys_info[0], buffer.sysname, sizeof(stats->sys_info[0]));
+    strncpy(stats->sys_info[1], buffer.nodename, sizeof(stats->sys_info[1]));
+    strncpy(stats->sys_info[2], buffer.version, sizeof(stats->sys_info[2]));
+    strncpy(stats->sys_info[3], buffer.release, sizeof(stats->sys_info[3]));
+    strncpy(stats->sys_info[4], buffer.machine, sizeof(stats->sys_info[4]));
+
+}
+
+// Function to get the number of CPU cores
+void getCPUCores(SystemStats *stats){
+    char line[256];
+    int cpu_cores = 0;
+    FILE *cpuinfoFile = NULL;
+   
+    cpuinfoFile = fopen("/proc/cpuinfo", "r");
+
+    if (cpuinfoFile == NULL) {
+        perror("Error opening /proc/cpuinfo");
+        exit(EXIT_FAILURE);
+    }
+
+    while (fgets(line, 256, cpuinfoFile) != NULL) {
+        if (strstr(line, "cpu cores")) {
+            sscanf(line, "cpu cores : %d", &cpu_cores);
+            break;
+        }
+    }
+
+    fclose(cpuinfoFile);
+
+    if (cpu_cores > 0) {
+        stats->cpu_cores = cpu_cores;
+    } else {
+        perror("Could not get number of cores.\n");
+    }
+}
+
 MemStruct initMemStruct(int samples){
     MemStruct myStruct;
     myStruct.mem_usage = (double **) malloc (sizeof(double) * samples);
@@ -56,6 +147,9 @@ void getMemUsage(double mem_usage[4]){
 }
 
 void deleteMem(int samples, MemStruct *mem_usage){
+    if (mem_usage == NULL) return;
+    if (mem_usage->mem_usage == NULL) return;
+
     for (int i = 0; i < samples; i++) {
         free(mem_usage->mem_usage[i]);
     }
@@ -147,6 +241,9 @@ void calculateCPUUtil(int iter, CPUStruct *cpu_usage){
 }
 
 void deleteCPU(int samples, CPUStruct *cpu_usage){
+    if (cpu_usage == NULL) return;
+    if (cpu_usage->cpu_usage == NULL) return;
+
     for (int i = 0; i < samples; i++) {
         free(cpu_usage->cpu_usage[i]);
     }
