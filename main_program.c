@@ -1,3 +1,7 @@
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <utmp.h>
+
 
 # include "main_program.h"
 # include "stats_functions.h"
@@ -46,6 +50,7 @@ void printCPUInfo(int iter, int samples, CPUStruct *cpu_usage);
 void printMemUtil(int iter, int samples, MemStruct *mem_usage);
 void printCPUInfoGraphics(int iter, int samples, CPUStruct *cpu_usage);
 void printMemUtilGraphics(int iter, int samples, MemStruct *mem_usage);
+void myPipes(int iter, int samples, int mem_utilsF, int user_F, int cpu_utilsF, MemStruct *mem_usage, CPUStruct *cpu_usage);
 
 /*helper*/
 int getdifference(double cur_mem, double pre_mem, int *difference);
@@ -73,21 +78,20 @@ int main(int argc, char ** argv){
     CPUStruct cpu_usage = initCPUStruct(samples);
     MemStruct mem_usage = initMemStruct(samples);
 
+    // printf(CLEAR_SCREEN);
+    // for (int i = 0; i < samples; i++){
+    //     printf(CLEAR_TO_HOME);
+    //     printf("Nbr samples: %d\n", samples);
+    //     printf("every %d seconds\n", tdelay);
+    //     printf("---------------------\n");
+    //     myPipes(i, samples, 0, 1, 0, &mem_usage, &cpu_usage);
+    //     sleep(tdelay);
+    // }
     printf(CLEAR_SCREEN);
     for (int i = 0; i < samples; i++){
-        /* OVBER HERREJEKFLJAKLJFKLDJKHERReEEEREEERere */
-        // system("clear");
         printf(CLEAR_TO_HOME);
-        /* FIZXX TJISSSSSSSS*/
-        printf("Nbr samples: %d\n", samples);
-        printf("every %d seconds\n", tdelay);
         printf("---------------------\n");
-        getMemUsage(i, &mem_usage);
-        printMemUtilGraphics(i, samples, &mem_usage);
-        printf("---------------------\n");
-        printf("iteration >> %d\n", i + 1);
-        getCPUUsage(i, &cpu_usage);
-        printCPUInfoGraphics(i, samples, &cpu_usage);
+        myPipes(i, samples, 1, 1, 1, &mem_usage, &cpu_usage);
         sleep(tdelay);
     }
 }
@@ -159,12 +163,13 @@ void printMemUtilGraphics(int iter, int samples, MemStruct *mem_usage){
 
 void printCPUInfo(int iter, int samples, CPUStruct *cpu_usage){
     
-    for(int i = 0; i < iter + 1; i++){
-        printf(" total cpu use: %.2f%%\n", cpu_usage->cpu_usage[i][CPUUTIL]);
-    }
-    for (int i = iter + 1; i < samples; i++){
-        printf("\n");
-    }
+    // for(int i = 0; i < iter + 1; i++){
+    //     printf(" total cpu use: %.2f%%\n", cpu_usage->cpu_usage[i][CPUUTIL]);
+    // }
+    // for (int i = iter + 1; i < samples; i++){
+    //     printf("\n");
+    // }
+    printf(" total cpu use: %.2f%%\n", cpu_usage->cpu_usage[iter][CPUUTIL]);
 }
 
 void printMemUtil(int iter, int samples, MemStruct *mem_usage){
@@ -198,3 +203,131 @@ int getdifference(double cur_mem, double pre_mem, int *difference){
     }
     return (int) (diff * 100); 
 }
+
+void myPipes(int iter, int samples, int mem_utilsF, int user_F, int cpu_utilsF, MemStruct *mem_usage, CPUStruct *cpu_usage){
+    int memFD[2];
+    int userFD[2];
+    int cpuFD[2];
+
+    if (mem_utilsF){
+        if (pipe(memFD) == -1){
+            perror("PIPE MEM");
+            exit(EXIT_FAILURE);
+        }
+
+        int pid = fork();
+        if (pid < 0){
+            perror("FORK MEM");
+            exit(EXIT_FAILURE);
+        }else if (pid == 0){
+            // child only writes to the pipe, so close reading end
+            close(memFD[0]);
+
+            double new_mem_usage[4];
+
+            getMemUsage(new_mem_usage);
+
+            write(memFD[1], new_mem_usage, sizeof(double) * 4);
+            close(memFD[1]); // close writing end b/c finished writing in child
+            exit(EXIT_SUCCESS);
+        }else{
+            // we're in parent reading
+            // so close the writing end of the pipe
+            close(memFD[1]);
+
+            // we're reading from the pipe and storing the 
+            // information into mem_util array
+            double new_mem_usage[4];
+            if ((read(memFD[0], new_mem_usage, sizeof(double)* 4)) == -1){
+                perror("Error reading from mem pipe");
+                exit(EXIT_FAILURE);
+            }
+            // r u supposed to get all the data in the child, then print everything in the parent?????
+            // or u just get one sample in the chlid, then send it over to the parent to handle printing??? 
+            close(memFD[0]);
+            wait(NULL);
+            
+            storeMemUsage(iter, new_mem_usage, mem_usage);
+            printMemUtil(iter, samples, mem_usage);
+        }
+    }
+
+    if (user_F) {
+        if (pipe(userFD) == -1) {
+            perror("PIPE USER");
+            exit(EXIT_FAILURE);
+        }
+
+        int pid = fork();
+        if (pid < 0) {
+            perror("FORK USER");
+            exit(EXIT_FAILURE);
+        } else if (pid == 0) {
+            close(userFD[0]);  // Close reading end 
+
+            char *data = getUsers(userFD[1]);
+
+            // char *fin = "finished\n";
+            // write(userFD[1], fin, strlen(fin));
+            write(userFD[1], data, strlen(data));
+
+            free(data);
+
+            close(userFD[1]);  // Close writing end 
+            exit(EXIT_SUCCESS);
+        } else {
+            close(userFD[1]);  // Close writing end
+            char buffer[MAX_STR_LEN];
+            ssize_t bytesRead;
+            
+            if ((bytesRead = read(userFD[0], buffer, MAX_STR_LEN)) > 0){
+                printf("%.*s", (int)bytesRead, buffer);
+            }
+
+            if (bytesRead <= 0) {
+                fprintf(stderr, "Error reading from pipe\n");
+            }
+
+            close(userFD[0]);  // Close reading end
+            wait(NULL);
+        }
+    }
+    
+    if (cpu_utilsF){
+        if (pipe(cpuFD) == -1){
+            perror("PIPE CPU");
+            exit(EXIT_FAILURE);
+        }
+        int pid = fork();
+        if (pid < 0){
+            perror("FORK MEM");
+            exit(EXIT_FAILURE);
+        }else if (pid == 0){
+            // child only writes to the pipe, so close reading end
+            close(cpuFD[0]);
+
+            double new_cpu[2];
+
+            getCPUUsage(new_cpu);
+
+            write(cpuFD[1], new_cpu, sizeof(double) * 2);
+            close(cpuFD[1]); // close writing end b/c finished writing in child
+            exit(EXIT_SUCCESS);
+        }else{
+            // in parent close the writing end
+            close(cpuFD[1]);
+
+            double new_cpu[2];
+            if ((read(cpuFD[0], new_cpu, sizeof(double)* 2)) == -1){
+                perror("Error reading from cpu pipe");
+                exit(EXIT_FAILURE);
+            }
+            close(cpuFD[0]);
+            wait(NULL);
+
+            storeCPUUsage(iter, new_cpu, cpu_usage);
+            printCPUInfo(iter, samples, cpu_usage);
+        }
+    }
+}
+
