@@ -340,10 +340,6 @@ void printCPUInfoGraphics(int iter, int samples, CPUStruct *cpu_usage){
     double util;
     int util_g;
 
-    // printf("Number of CPU cores: %d\n", stats->cpu_cores);
-    // printf("total cpu use: %.2f\n", cpu_usage->cpu_usage[iter][CPUUTIL]);
-
-    // printCPUInfo(iter, samples, cpu_usage, stats);
     for(int i = 0; i < iter + 1; i++){
         util = cpu_usage->cpu_usage[i][CPUUTIL];
         util_g = (int) util;
@@ -410,22 +406,11 @@ void printMemUtilGraphics(int iter, int samples, MemStruct *mem_usage){
 
 void printCPUInfo(int iter, int samples, CPUStruct *cpu_usage, SystemStats *stats){
     
-    // for(int i = 0; i < iter + 1; i++){
-    //     printf(" total cpu use: %.2f%%\n", cpu_usage->cpu_usage[i][CPUUTIL]);
-    // }
-    // for (int i = iter + 1; i < samples; i++){
-    //     printf("\n");
-    // }
     printf("Number of CPU cores: %d\n", stats->cpu_cores);
     printf(" total cpu use: %.2f%%\n", cpu_usage->cpu_usage[iter][CPUUTIL]);
 }
 
 void printMemUtil(int iter, int samples, MemStruct *mem_usage){
-    // want to print from 0 to iter
-    // then want to print blanks from iter to samples
-    // so suppose we have samples = 5, iter = 2
-    // print 0 1 2
-    // print blanks 3 4
     printf("### Memory ### (Phys.Used/Tot -- Virtual Used/Tot)\n");
     for (int i = 0; i < iter + 1; i++){
         printf("%.2f GB / %.2f GB -- %.2f GB / %.2f GB\n", 

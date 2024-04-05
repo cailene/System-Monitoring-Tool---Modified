@@ -100,23 +100,31 @@ MemStruct initMemStruct(int samples){
         free(myStruct.mem_usage);
         exit(EXIT_FAILURE);
     }
-    for(int i = 0; i < samples; i++){
-        myStruct.mem_usage[i] = (double *) malloc (sizeof(double) * 4);
-        if (myStruct.mem_usage[i] == NULL) {
-            fprintf(stderr, "Error allocating memory for cpu usage\n");
-            deleteMem(samples, &myStruct);
-            exit(EXIT_FAILURE);
-        }
-        myStruct.mem_usage[i][MEMTOT] = 0.0;
-        myStruct.mem_usage[i][MEMUSED] = 0.0;
-        myStruct.mem_usage[i][MEMTOTVIRT] = 0.0;
-        myStruct.mem_usage[i][MEMUSEDVIRT] = 0.0;
-    }
+    // for(int i = 0; i < samples; i++){
+    //     myStruct.mem_usage[i] = (double *) malloc (sizeof(double) * 4);
+    //     if (myStruct.mem_usage[i] == NULL) {
+    //         fprintf(stderr, "Error allocating memory for cpu usage\n");
+    //         deleteMem(samples, &myStruct);
+    //         exit(EXIT_FAILURE);
+    //     }
+    //     myStruct.mem_usage[i][MEMTOT] = 0.0;
+    //     myStruct.mem_usage[i][MEMUSED] = 0.0;
+    //     myStruct.mem_usage[i][MEMTOTVIRT] = 0.0;
+    //     myStruct.mem_usage[i][MEMUSEDVIRT] = 0.0;
+    // }
 
     return myStruct;
 }
 
 void storeMemUsage(int iter, double new_mem[4], MemStruct *mem_usage){
+    mem_usage->mem_usage[iter] = (double *) malloc (sizeof(double) * 4);
+    if (mem_usage->mem_usage[iter] == NULL) {
+        fprintf(stderr, "Error allocating memory for cpu usage\n");
+        for (int i = 0; i < iter; i++){
+            free(mem_usage->mem_usage[i]);
+        }
+        exit(EXIT_FAILURE);
+    }
     mem_usage->mem_usage[iter][MEMTOT] = new_mem[MEMTOT];
     mem_usage->mem_usage[iter][MEMUSED] = new_mem[MEMUSED];
 
