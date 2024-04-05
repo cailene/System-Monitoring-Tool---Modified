@@ -15,3 +15,5 @@ help:
 	@echo "stats:     Build the System Stats executable"
 	@echo "clean:     Remove auto-generated files"
 	@echo "help:      Display this help message"
+
+# valgrind --show-leak-kinds=all --leak-check=full ./stats

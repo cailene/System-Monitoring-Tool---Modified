@@ -1,30 +1,4 @@
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <utmp.h>
-#include <signal.h> 
-
-
 # include "main_program.h"
-# include "stats_functions.h"
-
-/*
-to run: 
-gcc -Wall -Werror stats_functions.c main_program.c -o stats
-./stats with optional [num samples][tdelay]
-
-*   Compile:
- *   gcc -Wall -Werror graph.c minheap.c graph_algos.c graph_tester.c -o tester
- *
- *   Run:
- *   ./tester sample_input.txt
- *
- *   SEE FILE expected_output.txt FOR EXPECTED OUTPUT
- *
- *   Don't forget:
- *   valgrind --show-leak-kinds=all --leak-check=full ./tester sample_input.txt
- *   clang-format -style=Google --dry-run myfile.c
- *   clang-tidy --config-file=if-you-want-custom.txt myfile.c
-*/
 
 void ignore(int signum);
 void leave(int signum);
