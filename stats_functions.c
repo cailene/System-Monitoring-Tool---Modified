@@ -13,6 +13,43 @@ SystemStats initSystemStats(){
     return stats;
 }
 
+MemStruct initMemStruct(int samples){
+    MemStruct myStruct;
+    myStruct.mem_usage = (double **) malloc (sizeof(double) * samples);
+    if (myStruct.mem_usage == NULL){
+        fprintf(stderr, "Error allocating memory for cpu usage\n");
+        free(myStruct.mem_usage);
+        exit(EXIT_FAILURE);
+    }
+
+    return myStruct;
+}
+
+CPUStruct initCPUStruct (int samples){
+    // allocating memory to use CPUStruct
+    // initializing CPUStruct
+    CPUStruct myStruct;
+    myStruct.cpu_usage = (double **) malloc (sizeof(double) * samples);
+    if (myStruct.cpu_usage == NULL){
+        fprintf(stderr, "Error allocating memory for cpu usage\n");
+        free(myStruct.cpu_usage);
+        exit(EXIT_FAILURE);
+    }
+    for(int i = 0; i < samples; i++){
+        myStruct.cpu_usage[i] = (double *) malloc (sizeof(double) * 3);
+        if (myStruct.cpu_usage[i] == NULL) {
+            fprintf(stderr, "Error allocating memory for cpu usage\n");
+            deleteCPU(samples, &myStruct);
+            exit(EXIT_FAILURE);
+        }
+        myStruct.cpu_usage[i][CPUTIME] = 0.0;
+        myStruct.cpu_usage[i][CPUUSE] = 0.0;
+        myStruct.cpu_usage[i][CPUUTIL] = 0.0;
+    }
+
+    return myStruct;
+}
+
 // Function to get system uptime
 void getUptime(SystemStats *stats){
     double uptime;
@@ -92,46 +129,6 @@ void getCPUCores(SystemStats *stats){
     }
 }
 
-MemStruct initMemStruct(int samples){
-    MemStruct myStruct;
-    myStruct.mem_usage = (double **) malloc (sizeof(double) * samples);
-    if (myStruct.mem_usage == NULL){
-        fprintf(stderr, "Error allocating memory for cpu usage\n");
-        free(myStruct.mem_usage);
-        exit(EXIT_FAILURE);
-    }
-    // for(int i = 0; i < samples; i++){
-    //     myStruct.mem_usage[i] = (double *) malloc (sizeof(double) * 4);
-    //     if (myStruct.mem_usage[i] == NULL) {
-    //         fprintf(stderr, "Error allocating memory for cpu usage\n");
-    //         deleteMem(samples, &myStruct);
-    //         exit(EXIT_FAILURE);
-    //     }
-    //     myStruct.mem_usage[i][MEMTOT] = 0.0;
-    //     myStruct.mem_usage[i][MEMUSED] = 0.0;
-    //     myStruct.mem_usage[i][MEMTOTVIRT] = 0.0;
-    //     myStruct.mem_usage[i][MEMUSEDVIRT] = 0.0;
-    // }
-
-    return myStruct;
-}
-
-void storeMemUsage(int iter, double new_mem[4], MemStruct *mem_usage){
-    mem_usage->mem_usage[iter] = (double *) malloc (sizeof(double) * 4);
-    if (mem_usage->mem_usage[iter] == NULL) {
-        fprintf(stderr, "Error allocating memory for cpu usage\n");
-        for (int i = 0; i < iter; i++){
-            free(mem_usage->mem_usage[i]);
-        }
-        exit(EXIT_FAILURE);
-    }
-    mem_usage->mem_usage[iter][MEMTOT] = new_mem[MEMTOT];
-    mem_usage->mem_usage[iter][MEMUSED] = new_mem[MEMUSED];
-
-    mem_usage->mem_usage[iter][MEMTOTVIRT] = new_mem[MEMTOTVIRT];
-    mem_usage->mem_usage[iter][MEMUSEDVIRT] = new_mem[MEMUSEDVIRT];
-}
-
 void getMemUsage(double mem_usage[4]){
     double total_mem, used_mem, total_virt_mem, used_virt_mem;
     struct sysinfo info;
@@ -152,41 +149,6 @@ void getMemUsage(double mem_usage[4]){
 
     mem_usage[MEMTOTVIRT] = total_virt_mem;
     mem_usage[MEMUSEDVIRT] = used_virt_mem;
-}
-
-void deleteMem(int samples, MemStruct *mem_usage){
-    if (mem_usage == NULL) return;
-    if (mem_usage->mem_usage == NULL) return;
-
-    for (int i = 0; i < samples; i++) {
-        free(mem_usage->mem_usage[i]);
-    }
-    free(mem_usage->mem_usage);
-}
-
-CPUStruct initCPUStruct (int samples){
-    // allocating memory to use CPUStruct
-    // initializing CPUStruct
-    CPUStruct myStruct;
-    myStruct.cpu_usage = (double **) malloc (sizeof(double) * samples);
-    if (myStruct.cpu_usage == NULL){
-        fprintf(stderr, "Error allocating memory for cpu usage\n");
-        free(myStruct.cpu_usage);
-        exit(EXIT_FAILURE);
-    }
-    for(int i = 0; i < samples; i++){
-        myStruct.cpu_usage[i] = (double *) malloc (sizeof(double) * 3);
-        if (myStruct.cpu_usage[i] == NULL) {
-            fprintf(stderr, "Error allocating memory for cpu usage\n");
-            deleteCPU(samples, &myStruct);
-            exit(EXIT_FAILURE);
-        }
-        myStruct.cpu_usage[i][CPUTIME] = 0.0;
-        myStruct.cpu_usage[i][CPUUSE] = 0.0;
-        myStruct.cpu_usage[i][CPUUTIL] = 0.0;
-    }
-
-    return myStruct;
 }
 
 void getCPUUsage(double cpu_usage[2]){
@@ -218,11 +180,54 @@ void getCPUUsage(double cpu_usage[2]){
     cpu_usage[CPUUSE] = current_cpu_usage;
 }
 
+char *getUsers(int fd){
+    // initializing
+    struct utmp *ut;
+    char *data = NULL;
+    size_t data_len = 0; 
+
+    setutent();
+    while ((ut = getutent()) != NULL) {
+        if (ut->ut_type == USER_PROCESS) {
+            char temp[MAX_STR_LEN];  // a temp buffer
+            sprintf(temp, "%-12s %-16s (%s)\n", ut->ut_user, ut->ut_line, ut->ut_host);
+            
+            size_t temp_len = strlen(temp);
+            data = realloc(data, data_len + temp_len + 1);  // +1 for null terminator
+            if (data == NULL) {
+                perror("Memory allocation failed");
+                exit(EXIT_FAILURE);
+            }
+            strcpy(data + data_len, temp);
+            data_len += temp_len;
+        }
+    }
+    endutent();
+
+    return data;
+}
+
 void storeCPUUsage(int iter, double new_cpu[2], CPUStruct *cpu_usage){
     cpu_usage->cpu_usage[iter][CPUTIME] = new_cpu[CPUTIME];
     cpu_usage->cpu_usage[iter][CPUUSE] = new_cpu[CPUUSE];
     
     calculateCPUUtil(iter, cpu_usage);
+}
+
+void storeMemUsage(int iter, double new_mem[4], MemStruct *mem_usage){
+    mem_usage->mem_usage[iter] = (double *) malloc (sizeof(double) * 4);
+    if (mem_usage->mem_usage[iter] == NULL) {
+        fprintf(stderr, "Error allocating memory for cpu usage\n");
+        for (int i = 0; i < iter; i++){
+            free(mem_usage->mem_usage[i]);
+        }
+        exit(EXIT_FAILURE);
+    }
+    mem_usage->mem_usage[iter][MEMTOT] = new_mem[MEMTOT];
+    mem_usage->mem_usage[iter][MEMUSED] = new_mem[MEMUSED];
+
+    mem_usage->mem_usage[iter][MEMTOTVIRT] = new_mem[MEMTOTVIRT];
+    mem_usage->mem_usage[iter][MEMUSEDVIRT] = new_mem[MEMUSEDVIRT];
 }
 
 /* helper */
@@ -248,6 +253,16 @@ void calculateCPUUtil(int iter, CPUStruct *cpu_usage){
     cpu_usage->cpu_usage[iter][CPUUTIL] = cpu_util;
 }
 
+void deleteMem(int samples, MemStruct *mem_usage){
+    if (mem_usage == NULL) return;
+    if (mem_usage->mem_usage == NULL) return;
+
+    for (int i = 0; i < samples; i++) {
+        free(mem_usage->mem_usage[i]);
+    }
+    free(mem_usage->mem_usage);
+}
+
 void deleteCPU(int samples, CPUStruct *cpu_usage){
     if (cpu_usage == NULL) return;
     if (cpu_usage->cpu_usage == NULL) return;
@@ -256,32 +271,4 @@ void deleteCPU(int samples, CPUStruct *cpu_usage){
         free(cpu_usage->cpu_usage[i]);
     }
     free(cpu_usage->cpu_usage);
-}
-
-char *getUsers(int fd){
-    struct utmp *ut;
-    char *data = NULL;  // Initialize data pointer
-    size_t data_len = 0;  // Initialize data length
-
-    setutent();
-    while ((ut = getutent()) != NULL) {
-        if (ut->ut_type == USER_PROCESS) {
-            char temp[MAX_STR_LEN];  // Temporary buffer for sprintf
-            sprintf(temp, "%-12s %-16s (%s)\n", ut->ut_user, ut->ut_line, ut->ut_host);
-
-            // Reallocate memory for data and concatenate the strings
-            size_t temp_len = strlen(temp);
-            data = realloc(data, data_len + temp_len + 1);  // +1 for null terminator
-            if (data == NULL) {
-                // Handle memory allocation failure
-                perror("Memory allocation failed");
-                exit(EXIT_FAILURE);
-            }
-            strcpy(data + data_len, temp);
-            data_len += temp_len;
-        }
-    }
-    endutent();
-
-    return data;
 }
