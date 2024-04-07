@@ -108,10 +108,12 @@ int main(int argc, char ** argv){
 
     CPUStruct cpu_usage = initCPUStruct(samples);
     if (cpu_usage.cpu_usage == NULL){
+        deleteCPU(samples, &cpu_usage);
         return 1;
     }
     MemStruct mem_usage = initMemStruct(samples);
     if (mem_usage.mem_usage == NULL){
+        deleteMem(samples, &mem_usage);
         return 1;
     }
 
@@ -119,6 +121,7 @@ int main(int argc, char ** argv){
         printf(CLEAR_SCREEN);
     }
     for (int i = 0; i < samples; i++){
+        myStats = initSystemStats();
         if (!sequential_flag){
             printf(CLEAR_TO_HOME);
             printf("Nbr of samples: %d -- every %d secs\n", samples, tdelay);
@@ -129,7 +132,6 @@ int main(int argc, char ** argv){
             printf("Memory Self-Utilization: %ld KB\n", myStats.self_mem_utl);
             printf("---------------------------------------\n");
         }
-        myStats = initSystemStats();
 
         if (system_flag){
             if (pipe(memFD) == -1){
@@ -254,15 +256,9 @@ int main(int argc, char ** argv){
                 printf("---------------------------------------\n");
             }
         }
-        
-        if (!sequential_flag){
-            printSysInfo(&myStats);
-        }
         sleep(tdelay);
     }
-    if (sequential_flag){
-        printSysInfo(&myStats);
-    }
+    printSysInfo(&myStats);
     
     deleteCPU(samples, &cpu_usage);
     deleteMem(samples, &mem_usage);
