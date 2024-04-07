@@ -1,11 +1,13 @@
+#define _POSIX_C_SOURCE 199309L
+
 # include <string.h>
 # include <stdlib.h>
 # include <stdio.h>
 # include <getopt.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <utmp.h>
-#include <signal.h> 
+# include <sys/types.h>
+# include <sys/wait.h>
+# include <utmp.h>
+# include <signal.h> 
 
 // CPU Graphics
 # define PERCPOS     "|"
