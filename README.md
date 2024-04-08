@@ -45,7 +45,7 @@ As usual, this program works in a Linux type OS.
 
 ## Problem Solving Approach
 
-To make my program run in a concurrent fashion, I knew I needed to use processes with the addition of pipes. My idea was to launch **three child processes** from **one parent process**. The child process will handle computing a singular sample to which it will send over the results to the parent through **pipes**. Each process will have a pipe totalling **three pipes** The parent will then read the sample and store it in an array for memory or cpu utilization or print as required. I utilized `wait()` to ensure **no pathological states** and to maintain the correct order of output.
+To make my program run in a concurrent fashion, I knew I needed to use processes with the addition of pipes. My idea was to launch **three child processes** from **one parent process**. The child process will handle computing a singular sample every tdely to which it will send over the results to the parent through **pipes**. Each process will have a pipe totalling **three pipes**. The parent will get the information in a loop and use ansii codes to properly format and print the informaion. To handle sequential printing, I stored memory utilization and cpu utilization in an array and have print functions to handle it.  I utilized `wait()` at the very end of reading to ensure **no pathological states** and to maintain the correct order of output.
 
   
 
@@ -385,20 +385,16 @@ Prints System information that's populated into `SystemStats`  `stats`. I.e prin
 
 Takes as input the current iteration of sample needed, total samples, CPUStruct, and SystemStats.
 
+Information is taken from child process, read in parent stored for graphics then sent here for printing. 
   
 
 Prints CPU utilization and the number of cores of your system.
 
   
 
-### printMemUtil(int iter, int samples, MemStruct *mem_usage)
+### printMemUtil(double mem_usage[4])
 
-Takes as input the current iteration of sample needed, total samples, and MemStruct.
-
-  
-
-Prints memory utilization including physical and virtual memory.
-
+Prints a singular sample of memory utilization taken in child process, read in parent then sent here for printing. 
   
 
 ### printCPUInfoGraphics(int iter, int samples, CPUStruct *cpu_usage)
@@ -420,6 +416,10 @@ Takes as input the current iteration of sample needed, total samples, and MemStr
 Prints the memory utilization with graphics with defined memory graphics
 
   
+### printCPUInfoGraphicsSEQ(int iter, int samples, CPUStruct *cpu_usage)
+### printCPUInfoSEQ(int iter, int samples, CPUStruct *cpu_usage, SystemStats *stats)
+
+These are functions to handle sequential printing.
 
 ### Message()
 

@@ -60,6 +60,10 @@ void printCPUInfoGraphics(int iter, int samples, CPUStruct *cpu_usage);
 /*Prints the memory utilization with graphics with defined memory graphics*/
 void printMemUtilGraphics(int iter, int samples, MemStruct *mem_usage);
 
+/* Print functions for sequential printing*/
+void printCPUInfoGraphicsSEQ(int iter, int samples, CPUStruct *cpu_usage);
+void printCPUInfoSEQ(int iter, int samples, CPUStruct *cpu_usage, SystemStats *stats);
+
 /*Prints a message on how to use the program*/
 void Message();
 
