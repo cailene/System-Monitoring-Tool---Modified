@@ -45,7 +45,7 @@ As usual, this program works in a Linux type OS.
 
 ## Problem Solving Approach
 
-To make my program run in a concurrent fashion, I knew I needed to use processes with the addition of pipes. My idea was to launch **three child processes** from **one parent process**. The child process will handle computing a singular sample every tdely to which it will send over the results to the parent through **pipes**. Each process will have a pipe totalling **three pipes**. The parent will get the information in a loop and use ansii codes to properly format and print the informaion. To handle sequential printing, I stored memory utilization and cpu utilization in an array and have print functions to handle it.  I utilized `wait()` at the very end of reading to ensure **no pathological states** and to maintain the correct order of output.
+To make my program run in a concurrent fashion, I knew I needed to use processes with the addition of pipes. My idea was to launch **three child processes** from **one parent process**. The child process will handle computing a singular sample every tdelay to which it will send over the results to the parent through **pipes**. Each process will have a pipe totalling **three pipes**. The parent will get the information in a loop and use ansii codes to properly format and print the informaion. To handle sequential printing, I stored memory utilization and cpu utilization in an array and have print functions to handle it.  I utilized `wait()` at the very end of reading to ensure **no pathological states** and to maintain the correct order of output.
 
   
 
