@@ -218,6 +218,8 @@ int main(int argc, char ** argv){
             // get info from pipe and print based on flag
             if (system_flag){
                 double new_mem_usage[4];
+                // check if everything was read from pipe ok
+                // if not send an error to kernel using perror
                 if ((read(memFD[0], new_mem_usage, sizeof(double)* 4)) == -1){
                     perror("Error reading from mem pipe");
                     exit(EXIT_FAILURE);
@@ -238,7 +240,11 @@ int main(int argc, char ** argv){
             int users = 0; // for print formatting
             if (user_flag){
                 printf(CLEAR_TO_HOME);
-                printf("\33[%dB", samples + 4);
+                if (!system_flag){
+                    printf("\33[%dB", 2);
+                }else{
+                    printf("\33[%dB", samples + 4);
+                }
                 printf("---------------------------------------\n");
                 printf("### Sessions/users ###\n");
                 char buffer[MAX_STR_LEN];
