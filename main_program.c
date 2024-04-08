@@ -197,11 +197,7 @@ int main(int argc, char ** argv){
 
     printf(CLEAR_SCREEN);
     printf(CLEAR_TO_HOME);
-    int spacing = 0;
-    int users = 0;
     for (int i = 0; i < samples; i++){
-        spacing = 0;
-        users = 0;
         myStats = initSystemStats();
         if (!sequential_flag){
             printf(CLEAR_TO_HOME);
@@ -211,77 +207,58 @@ int main(int argc, char ** argv){
             printf(">>> iteration %d\n", i+1);
             printf("Memory Self-Utilization: %ld KB\n", myStats.self_mem_utl);
         }
-        spacing += 2;
-        users = 0;
 
         if (system_flag){
-            spacing += 2;
-
-            double new_mem_usage[4];
-            if ((read(memFD[0], new_mem_usage, sizeof(double)* 4)) == -1){
-                perror("Error reading from mem pipe");
-                exit(EXIT_FAILURE);
-            }
-            printf("---------------------------------------\n");
-            printf("### Memory ### (Phys.Used/Tot -- Virtual Used/Tot)\n");
-
-            spacing += i;
-            printf(CLEAR_TO_HOME);
-            printf("\33[%dB", spacing);
-            storeMemUsage(i, new_mem_usage, &mem_usage);
-            if (graphics_flag){
-                printMemUtilGraphics(i, samples, &mem_usage);
-            }else{
-                printMemUtil(new_mem_usage);
-            }
-            spacing = samples - i;
-            spacing += 4;
+                   double new_mem_usage[4];
+        if ((read(memFD[0], new_mem_usage, sizeof(double)* 4)) == -1){
+            perror("Error reading from mem pipe");
+            exit(EXIT_FAILURE);
+        }
+        printf("---------------------------------------\n");
+        printf("### Memory ### (Phys.Used/Tot -- Virtual Used/Tot)\n");
+        printf(CLEAR_TO_HOME);
+        printf("\33[%dB", i+4);
+        storeMemUsage(i, new_mem_usage, &mem_usage);
+        if (graphics_flag){
+            printMemUtilGraphics(i, samples, &mem_usage);
+        }else{
+            printMemUtil(new_mem_usage);
         }
 
-        if (user_flag){
-            printf(CLEAR_TO_HOME);
-            printf("\33[%dB", spacing);
+        printf(CLEAR_TO_HOME);
+        printf("\33[%dB", samples + 4);
+        printf("---------------------------------------\n");
+        printf("### Sessions/users ###\n");
+        char buffer[MAX_STR_LEN];
+        ssize_t bytesRead;
+        if ((bytesRead = read(userFD[0], buffer, MAX_STR_LEN)) >= 0){
+            printf("%.*s", (int)bytesRead, buffer);
             printf("---------------------------------------\n");
-            printf("### Sessions/users ###\n");
-            char buffer[MAX_STR_LEN];
-            ssize_t bytesRead;
-            if ((bytesRead = read(userFD[0], buffer, MAX_STR_LEN)) >= 0){
-                printf("%.*s", (int)bytesRead, buffer);
-                printf("---------------------------------------\n");
-            }else{
-                perror("Error reading from user pipe");
-                exit(EXIT_FAILURE);
-            }
-            // getting spacing
-            char *temp = strstr(buffer, "#");
-            temp++;
-            users = atoi(temp);
-            spacing += users;
-            spacing += 3;
+        }else{
+            perror("Error reading from user pipe");
+            exit(EXIT_FAILURE);
+        }
+        char *temp = strstr(buffer, "#");
+        temp++;
+        int users = atoi(temp);
+
+        double new_cpu[2];
+        if ((read(cpuFD[0], new_cpu, sizeof(double)* 2)) == -1){
+            perror("Error reading from cpu pipe");
+            exit(EXIT_FAILURE);
         }
 
-        if (cpu_flag){
-            double new_cpu[2];
-            if ((read(cpuFD[0], new_cpu, sizeof(double)* 2)) == -1){
-                perror("Error reading from cpu pipe");
-                exit(EXIT_FAILURE);
-            }
-
-            printf(CLEAR_TO_HOME);
-            printf("\33[%dB", spacing);
-            storeCPUUsage(i, new_cpu, &cpu_usage);
-            printCPUInfo(i, samples, &cpu_usage, &myStats);
-            if (graphics_flag){
-                printCPUInfoGraphics(i, samples, &cpu_usage);
-                spacing += samples;
-            }
-            spacing += 5;
-            printf("---------------------------------------\n");
+        storeCPUUsage(i, new_cpu, &cpu_usage);
+        printf(CLEAR_TO_HOME);
+        printf("\33[%dB", samples+users+7);
+        printCPUInfo(i, samples, &cpu_usage, &myStats);
+        if (graphics_flag){
+            printCPUInfoGraphics(i, samples, &cpu_usage);
         }
-        printf("\33[E");
-        printf("\33 7");
+        printf("---------------------------------------\n");
+        }
     }
-    // printSysInfo(&myStats);
+    printSysInfo(&myStats);
 
     if (cpu_flag) close(cpuFD[0]);
     if (system_flag) close(memFD[0]);
