@@ -117,6 +117,144 @@ int main(int argc, char ** argv){
         return 1;
     }
 
+    if (system_flag){
+        if (pipe(memFD) == -1){
+            perror("PIPE MEM");
+            exit(EXIT_FAILURE);
+        }
+
+        int pid = fork();
+        if (pid < 0){
+            perror("FORK MEM");
+            exit(EXIT_FAILURE);
+        }else if (pid == 0){
+            close(memFD[0]);
+
+            for (int i = 0; i < samples; i++){
+                double new_mem_usage[4];
+
+                getMemUsage(new_mem_usage);
+
+                write(memFD[1], new_mem_usage, sizeof(double) * 4);
+                sleep(tdelay);
+            }
+            close(memFD[1]);
+            exit(EXIT_SUCCESS);
+        }
+    }
+    if (user_flag) {
+        if (pipe(userFD) == -1) {
+            perror("PIPE USER");
+            exit(EXIT_FAILURE);
+        }
+
+        int pid = fork();
+        if (pid < 0) {
+            perror("FORK USER");
+            exit(EXIT_FAILURE);
+        } else if (pid == 0) {
+            close(userFD[0]);
+
+            for (int i = 0; i < samples; i++){
+                char *data = getUsers(userFD[1]);
+
+                write(userFD[1], data, strlen(data));
+
+                free(data);
+                sleep(tdelay);
+            }
+
+            close(userFD[1]);
+            exit(EXIT_SUCCESS);
+        }
+    }
+
+    if (cpu_flag){
+        if (pipe(cpuFD) == -1){
+            perror("PIPE CPU");
+            exit(EXIT_FAILURE);
+        }
+        int pid = fork();
+        if (pid < 0){
+            perror("FORK MEM");
+            exit(EXIT_FAILURE);
+        }else if (pid == 0){
+            close(cpuFD[0]);
+            for (int i = 0; i < samples; i++){
+                double new_cpu[2];
+
+                getCPUUsage(new_cpu);
+
+                write(cpuFD[1], new_cpu, sizeof(double) * 2);
+                sleep(tdelay);
+            }
+            close(cpuFD[1]);
+            exit(EXIT_SUCCESS);
+        }
+    }
+
+
+    if (system_flag){
+        close(memFD[1]);
+        for (int i = 0; i < samples; i++){
+            double new_mem_usage[4];
+            if ((read(memFD[0], new_mem_usage, sizeof(double)* 4)) == -1){
+                perror("Error reading from mem pipe");
+                exit(EXIT_FAILURE);
+            }
+            storeMemUsage(i, new_mem_usage, &mem_usage);
+            if (graphics_flag){
+                printMemUtilGraphics(i, samples, &mem_usage);
+            }else{
+                printMemUtil(i, samples, &mem_usage);
+            }
+        }
+            close(memFD[0]);
+            wait(NULL);
+    }
+    if (user_flag){
+        close(userFD[1]);
+        
+        printf("### Sessions/users ### \n");
+        for (int i = 0; i < samples; i++){
+            char buffer[MAX_STR_LEN];
+            ssize_t bytesRead;
+            if ((bytesRead = read(userFD[0], buffer, MAX_STR_LEN)) >= 0){
+                printf("%.*s", (int)bytesRead, buffer);
+                printf("---------------------------------------\n");
+            }else{
+                perror("Error reading from user pipe");
+                exit(EXIT_FAILURE);
+            }
+        }
+
+        close(userFD[0]);
+        wait(NULL);
+    }
+
+    if (cpu_flag){
+            
+        close(cpuFD[1]);
+
+        for (int i = 0; i < samples; i++){
+            double new_cpu[2];
+            if ((read(cpuFD[0], new_cpu, sizeof(double)* 2)) == -1){
+                perror("Error reading from cpu pipe");
+                exit(EXIT_FAILURE);
+            }
+
+            storeCPUUsage(i, new_cpu, &cpu_usage);
+            
+            printCPUInfo(i, samples, &cpu_usage, &myStats);
+            if (graphics_flag){
+                printCPUInfoGraphics(i, samples, &cpu_usage);
+            }
+            printf("---------------------------------------\n");
+        }
+        close(cpuFD[0]);
+        wait(NULL);
+    }
+
     if (!sequential_flag){
         printf(CLEAR_SCREEN);
     }
@@ -132,134 +270,10 @@ int main(int argc, char ** argv){
             printf("Memory Self-Utilization: %ld KB\n", myStats.self_mem_utl);
             printf("---------------------------------------\n");
         }
-
-        if (system_flag){
-            if (pipe(memFD) == -1){
-                perror("PIPE MEM");
-                exit(EXIT_FAILURE);
-            }
-
-            int pid = fork();
-            if (pid < 0){
-                perror("FORK MEM");
-                exit(EXIT_FAILURE);
-            }else if (pid == 0){
-                close(memFD[0]);
-
-                double new_mem_usage[4];
-
-                getMemUsage(new_mem_usage);
-
-                write(memFD[1], new_mem_usage, sizeof(double) * 4);
-                close(memFD[1]);
-                exit(EXIT_SUCCESS);
-            }else{
-                close(memFD[1]);
-
-                double new_mem_usage[4];
-                if ((read(memFD[0], new_mem_usage, sizeof(double)* 4)) == -1){
-                    perror("Error reading from mem pipe");
-                    exit(EXIT_FAILURE);
-                }
-                
-                close(memFD[0]);
-                wait(NULL);
-                
-                storeMemUsage(i, new_mem_usage, &mem_usage);
-                if (graphics_flag){
-                    printMemUtilGraphics(i, samples, &mem_usage);
-                }else{
-                    printMemUtil(i, samples, &mem_usage);
-                }
-            }
-        }
-
-        if (user_flag) {
-            if (pipe(userFD) == -1) {
-                perror("PIPE USER");
-                exit(EXIT_FAILURE);
-            }
-
-            int pid = fork();
-            if (pid < 0) {
-                perror("FORK USER");
-                exit(EXIT_FAILURE);
-            } else if (pid == 0) {
-                close(userFD[0]);
-
-                char *data = getUsers(userFD[1]);
-
-                // char *fin = "finished\n";
-                // write(userFD[1], fin, strlen(fin));
-                write(userFD[1], data, strlen(data));
-
-                free(data);
-
-                close(userFD[1]);
-                exit(EXIT_SUCCESS);
-            } else {
-                close(userFD[1]);
-                char buffer[MAX_STR_LEN];
-                ssize_t bytesRead;
-                
-                printf("### Sessions/users ### \n");
-                if ((bytesRead = read(userFD[0], buffer, MAX_STR_LEN)) > 0){
-                    printf("%.*s", (int)bytesRead, buffer);
-                }
-                printf("---------------------------------------\n");
-
-                if (bytesRead <= 0) {
-                    fprintf(stderr, "Error reading from pipe\n");
-                }
-
-                close(userFD[0]);
-                wait(NULL);
-            }
-        }
-        
-        if (cpu_flag){
-            if (pipe(cpuFD) == -1){
-                perror("PIPE CPU");
-                exit(EXIT_FAILURE);
-            }
-            int pid = fork();
-            if (pid < 0){
-                perror("FORK MEM");
-                exit(EXIT_FAILURE);
-            }else if (pid == 0){
-                close(cpuFD[0]);
-
-                double new_cpu[2];
-
-                getCPUUsage(new_cpu);
-
-                write(cpuFD[1], new_cpu, sizeof(double) * 2);
-                close(cpuFD[1]);
-                exit(EXIT_SUCCESS);
-            }else{
-                close(cpuFD[1]);
-
-                double new_cpu[2];
-                if ((read(cpuFD[0], new_cpu, sizeof(double)* 2)) == -1){
-                    perror("Error reading from cpu pipe");
-                    exit(EXIT_FAILURE);
-                }
-                close(cpuFD[0]);
-                wait(NULL);
-
-                storeCPUUsage(i, new_cpu, &cpu_usage);
-                
-                printCPUInfo(i, samples, &cpu_usage, &myStats);
-                if (graphics_flag){
-                    printCPUInfoGraphics(i, samples, &cpu_usage);
-                }
-                printf("---------------------------------------\n");
-            }
-        }
-        sleep(tdelay);
+        // sleep(tdelay);
     }
     printSysInfo(&myStats);
-    
+
     deleteCPU(samples, &cpu_usage);
     deleteMem(samples, &mem_usage);
 
