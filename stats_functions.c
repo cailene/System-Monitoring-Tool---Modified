@@ -184,11 +184,13 @@ char *getUsers(int fd){
     // initializing
     struct utmp *ut;
     char *data = NULL;
+    int counter = 0;
     size_t data_len = 0; 
 
     setutent();
     while ((ut = getutent()) != NULL) {
         if (ut->ut_type == USER_PROCESS) {
+            counter++;
             char temp[MAX_STR_LEN];  // a temp buffer
             sprintf(temp, "%-12s %-16s (%s)\n", ut->ut_user, ut->ut_line, ut->ut_host);
             
@@ -203,6 +205,23 @@ char *getUsers(int fd){
         }
     }
     endutent();
+
+    // Prepare a line with the counter
+    char line_with_counter[MAX_STR_LEN];
+    sprintf(line_with_counter, "#%d", counter);
+
+    // Update data_len with the length of the counter line
+    data_len += strlen(line_with_counter);
+
+    // Reallocate memory for the data string to accommodate the counter line
+    data = realloc(data, data_len + 1);  // +1 for null terminator
+    if (data == NULL) {
+        perror("Memory allocation failed");
+        exit(EXIT_FAILURE);
+    }
+
+    // Append the counter line to the data string
+    strcat(data, line_with_counter);
 
     return data;
 }
