@@ -191,17 +191,18 @@ int main(int argc, char ** argv){
         }
     }
 
-
     if (cpu_flag) close(cpuFD[1]);
     if (system_flag) close(memFD[1]);
     if (user_flag) close(userFD[1]);
 
-    if (!sequential_flag){
-        printf(CLEAR_SCREEN);
-    }
+    printf(CLEAR_SCREEN);
+    printf(CLEAR_TO_HOME);
+    int spacing = 0;
+    int users = 0;
     for (int i = 0; i < samples; i++){
+        spacing = 0;
+        users = 0;
         myStats = initSystemStats();
-        int spacing = 2;
         if (!sequential_flag){
             printf(CLEAR_TO_HOME);
             printf("Nbr of samples: %d -- every %d secs\n", samples, tdelay);
@@ -210,7 +211,12 @@ int main(int argc, char ** argv){
             printf(">>> iteration %d\n", i+1);
             printf("Memory Self-Utilization: %ld KB\n", myStats.self_mem_utl);
         }
+        spacing += 2;
+        users = 0;
+
         if (system_flag){
+            spacing += 2;
+
             double new_mem_usage[4];
             if ((read(memFD[0], new_mem_usage, sizeof(double)* 4)) == -1){
                 perror("Error reading from mem pipe");
@@ -218,18 +224,20 @@ int main(int argc, char ** argv){
             }
             printf("---------------------------------------\n");
             printf("### Memory ### (Phys.Used/Tot -- Virtual Used/Tot)\n");
+
+            spacing += i;
             printf(CLEAR_TO_HOME);
-            printf("\33[%dB", i+4);
+            printf("\33[%dB", spacing);
             storeMemUsage(i, new_mem_usage, &mem_usage);
             if (graphics_flag){
                 printMemUtilGraphics(i, samples, &mem_usage);
             }else{
                 printMemUtil(new_mem_usage);
             }
-            spacing = samples + 4;
+            spacing = samples - i;
+            spacing += 4;
         }
 
-        int users;
         if (user_flag){
             printf(CLEAR_TO_HOME);
             printf("\33[%dB", spacing);
@@ -244,11 +252,12 @@ int main(int argc, char ** argv){
                 perror("Error reading from user pipe");
                 exit(EXIT_FAILURE);
             }
+            // getting spacing
             char *temp = strstr(buffer, "#");
             temp++;
             users = atoi(temp);
-            spacing = spacing + users;
-            spacing += 2;
+            spacing += users;
+            spacing += 3;
         }
 
         if (cpu_flag){
@@ -258,17 +267,21 @@ int main(int argc, char ** argv){
                 exit(EXIT_FAILURE);
             }
 
-            storeCPUUsage(i, new_cpu, &cpu_usage);
             printf(CLEAR_TO_HOME);
             printf("\33[%dB", spacing);
+            storeCPUUsage(i, new_cpu, &cpu_usage);
             printCPUInfo(i, samples, &cpu_usage, &myStats);
             if (graphics_flag){
                 printCPUInfoGraphics(i, samples, &cpu_usage);
+                spacing += samples;
             }
+            spacing += 5;
             printf("---------------------------------------\n");
         }
+        printf("\33[E");
+        printf("\33 7");
     }
-    printSysInfo(&myStats);
+    // printSysInfo(&myStats);
 
     if (cpu_flag) close(cpuFD[0]);
     if (system_flag) close(memFD[0]);
@@ -345,7 +358,6 @@ void printCPUInfoGraphics(int iter, int samples, CPUStruct *cpu_usage){
     for (int i = iter + 1; i < samples; i++){
         printf("\n");
     }
-    // printf("---------------------------------------\n");
 }
 
 void printMemUtilGraphics(int iter, int samples, MemStruct *mem_usage){
@@ -353,46 +365,38 @@ void printMemUtilGraphics(int iter, int samples, MemStruct *mem_usage){
     double cur_mem, pre_mem;
     int difference; 
 
-    //for (int i = 0; i < iter + 1; i++){
-        printf("%.2f GB / %.2f GB -- %.2f GB / %.2f GB    %s", 
-                mem_usage->mem_usage[iter][MEMUSED], 
-                mem_usage->mem_usage[iter][MEMTOT], 
-                mem_usage->mem_usage[iter][MEMUSEDVIRT], 
-                mem_usage->mem_usage[iter][MEMTOTVIRT],
-                PERCPOS);
-        if (iter == 0){
-            // here it's printing the used virtual memory
-            printf("%s %.2f (%.2f)\n", NEUT, (double)ZERO, mem_usage->mem_usage[iter][MEMUSEDVIRT]);
-        }else{
-            // getting the difference between the current sample and previous by using virt used memory
-            cur_mem = mem_usage->mem_usage[iter][MEMUSEDVIRT];
-            pre_mem = mem_usage->mem_usage[iter - 1][MEMUSEDVIRT];
-            util_g = getdifference(cur_mem, pre_mem, &difference);
-            // printf("difference is: %d = %f ", util_g, cur_mem - pre_mem);
+    printf("%.2f GB / %.2f GB -- %.2f GB / %.2f GB    %s", 
+            mem_usage->mem_usage[iter][MEMUSED], 
+            mem_usage->mem_usage[iter][MEMTOT], 
+            mem_usage->mem_usage[iter][MEMUSEDVIRT], 
+            mem_usage->mem_usage[iter][MEMTOTVIRT],
+            PERCPOS);
+    if (iter == 0){
+        // here it's printing the used virtual memory
+        printf("%s %.2f (%.2f)\n", NEUT, (double)ZERO, mem_usage->mem_usage[iter][MEMUSEDVIRT]);
+    }else{
+        // getting the difference between the current sample and previous by using virt used memory
+        cur_mem = mem_usage->mem_usage[iter][MEMUSEDVIRT];
+        pre_mem = mem_usage->mem_usage[iter - 1][MEMUSEDVIRT];
+        util_g = getdifference(cur_mem, pre_mem, &difference);
 
-            if (difference > 0){
-                for (int j = 0; j < util_g; j++){
-                    printf("#");
-                }
-                printf("*");
-            }else{
-                // difference = -1
-                for (int j = 0; j < util_g; j++){
-                    printf(":");
-                }
-                printf("@");
+        if (difference > 0){
+            for (int j = 0; j < util_g; j++){
+                printf("#");
             }
-            printf(" %.2f (%.2f)\n", (double) (util_g / 100), mem_usage->mem_usage[iter][MEMUSEDVIRT]);
+            printf("*");
+        }else{
+            // difference = -1
+            for (int j = 0; j < util_g; j++){
+                printf(":");
+            }
+            printf("@");
         }
-    //}
-    // for (int i = iter + 1; i < samples; i++){
-    //     printf("\n");
-    // }
-    // printf("---------------------------------------\n");
+        printf(" %.2f (%.2f)\n", (double) (util_g / 100), mem_usage->mem_usage[iter][MEMUSEDVIRT]);
+    }
 }
 
 void printCPUInfo(int iter, int samples, CPUStruct *cpu_usage, SystemStats *stats){
-    
     printf("Number of CPU cores: %d\n", stats->cpu_cores);
     printf(" total cpu use: %.2f%%\n", cpu_usage->cpu_usage[iter][CPUUTIL]);
 }
@@ -403,22 +407,6 @@ void printMemUtil(double mem_usage[4]){
                 mem_usage[MEMTOT], 
                 mem_usage[MEMUSEDVIRT], 
                 mem_usage[MEMTOTVIRT]);
-    // printf("%.2f GB / %.2f GB -- %.2f GB / %.2f GB\n", 
-    //             mem_usage->mem_usage[iter][MEMUSED], 
-    //             mem_usage->mem_usage[iter][MEMTOT], 
-    //             mem_usage->mem_usage[iter][MEMUSEDVIRT], 
-    //             mem_usage->mem_usage[iter][MEMTOTVIRT]);
-    // for (int i = 0; i < iter + 1; i++){
-    //     printf("%.2f GB / %.2f GB -- %.2f GB / %.2f GB\n", 
-    //             mem_usage->mem_usage[i][MEMUSED], 
-    //             mem_usage->mem_usage[i][MEMTOT], 
-    //             mem_usage->mem_usage[i][MEMUSEDVIRT], 
-    //             mem_usage->mem_usage[i][MEMTOTVIRT]);
-    // }
-    // for (int i = iter + 1; i < samples; i++){
-    //     printf("\n");
-    // }
-    // printf("---------------------------------------\n");
 }
 
 int getdifference(double cur_mem, double pre_mem, int *difference){
