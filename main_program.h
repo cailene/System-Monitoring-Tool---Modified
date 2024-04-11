@@ -54,11 +54,15 @@ void printSysInfo(SystemStats *stats);
 /*Prints CPU utilization and the number of cores of your system */
 void printCPUInfo(int iter, int samples, CPUStruct *cpu_usage, SystemStats *stats);
 /*Prints memory utilization including physical and virtual memory */
-void printMemUtil(int iter, int samples, MemStruct *mem_usage);
+void printMemUtil(double mem_usage[4]);
 /*Prints the CPU utilization with graphics with PERCPOS sign*/
 void printCPUInfoGraphics(int iter, int samples, CPUStruct *cpu_usage);
 /*Prints the memory utilization with graphics with defined memory graphics*/
 void printMemUtilGraphics(int iter, int samples, MemStruct *mem_usage);
+
+/* Print functions for sequential printing*/
+void printCPUInfoGraphicsSEQ(int iter, int samples, CPUStruct *cpu_usage);
+void printCPUInfoSEQ(int iter, int samples, CPUStruct *cpu_usage, SystemStats *stats);
 
 /*Prints a message on how to use the program*/
 void Message();

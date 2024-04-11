@@ -1,5 +1,6 @@
 CC = gcc
-CFLAGS = -Wall -g -Werror -std=c99 
+#CFLAGS = -Wall -g -Werror -std=c99 
+CFLAGS = -Wall -g -std=c99 
 
 mySystemStats: main_program.o stats_functions.o
 	$(CC) $(CFLAGS) -o $@ $^

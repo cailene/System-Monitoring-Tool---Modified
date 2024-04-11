@@ -4,10 +4,15 @@ void ignore(int signum);
 void leave(int signum);
 
 void printCPUInfo(int iter, int samples, CPUStruct *cpu_usage, SystemStats *stats);
-void printMemUtil(int iter, int samples, MemStruct *mem_usage);
+void printMemUtil(double mem_usage[4]);
 void printCPUInfoGraphics(int iter, int samples, CPUStruct *cpu_usage);
 void printMemUtilGraphics(int iter, int samples, MemStruct *mem_usage);
 void printSysInfo(SystemStats *stats);
+
+/* print functions for sequential printing*/
+void printCPUInfoGraphicsSEQ(int iter, int samples, CPUStruct *cpu_usage);
+void printCPUInfoSEQ(int iter, int samples, CPUStruct *cpu_usage, SystemStats *stats);
+
 void Message();
 
 /*helper*/
@@ -20,6 +25,7 @@ int main(int argc, char ** argv){
     int memFD[2], userFD[2], cpuFD[2];
     SystemStats myStats;
 
+    // signal handlers
     struct sigaction act;
 	act.sa_handler = ignore;
 	act.sa_flags =0;
@@ -116,139 +122,163 @@ int main(int argc, char ** argv){
         deleteMem(samples, &mem_usage);
         return 1;
     }
-
-    if (!sequential_flag){
-        printf(CLEAR_SCREEN);
-    }
-    for (int i = 0; i < samples; i++){
-        myStats = initSystemStats();
-        if (!sequential_flag){
-            printf(CLEAR_TO_HOME);
-            printf("Nbr of samples: %d -- every %d secs\n", samples, tdelay);
-            printf("Memory Self-Utilization: %ld KB\n", myStats.self_mem_utl);
-            printf("---------------------------------------\n");
-        }else{
-            printf(">>> iteration %d\n", i+1);
-            printf("Memory Self-Utilization: %ld KB\n", myStats.self_mem_utl);
-            printf("---------------------------------------\n");
+    if (system_flag){
+        if (pipe(memFD) == -1){
+            perror("PIPE MEM");
+            exit(EXIT_FAILURE);
         }
 
-        if (system_flag){
-            if (pipe(memFD) == -1){
-                perror("PIPE MEM");
-                exit(EXIT_FAILURE);
-            }
+        int pid = fork();
+        if (pid < 0){
+            perror("FORK MEM");
+            exit(EXIT_FAILURE);
+        }else if (pid == 0){
+            close(memFD[0]);
 
-            int pid = fork();
-            if (pid < 0){
-                perror("FORK MEM");
-                exit(EXIT_FAILURE);
-            }else if (pid == 0){
-                close(memFD[0]);
-
+            for (int i = 0; i < samples; i++){
                 double new_mem_usage[4];
 
                 getMemUsage(new_mem_usage);
 
                 write(memFD[1], new_mem_usage, sizeof(double) * 4);
-                close(memFD[1]);
-                exit(EXIT_SUCCESS);
-            }else{
-                close(memFD[1]);
-
-                double new_mem_usage[4];
-                if ((read(memFD[0], new_mem_usage, sizeof(double)* 4)) == -1){
-                    perror("Error reading from mem pipe");
-                    exit(EXIT_FAILURE);
-                }
-                
-                close(memFD[0]);
-                wait(NULL);
-                
-                storeMemUsage(i, new_mem_usage, &mem_usage);
-                if (graphics_flag){
-                    printMemUtilGraphics(i, samples, &mem_usage);
-                }else{
-                    printMemUtil(i, samples, &mem_usage);
-                }
+                sleep(tdelay);
             }
+            close(memFD[1]);
+            exit(EXIT_SUCCESS);
+        }
+    }
+    if (user_flag) {
+        if (pipe(userFD) == -1) {
+            perror("PIPE USER");
+            exit(EXIT_FAILURE);
         }
 
-        if (user_flag) {
-            if (pipe(userFD) == -1) {
-                perror("PIPE USER");
-                exit(EXIT_FAILURE);
-            }
+        int pid = fork();
+        if (pid < 0) {
+            perror("FORK USER");
+            exit(EXIT_FAILURE);
+        } else if (pid == 0) {
+            close(userFD[0]);
 
-            int pid = fork();
-            if (pid < 0) {
-                perror("FORK USER");
-                exit(EXIT_FAILURE);
-            } else if (pid == 0) {
-                close(userFD[0]);
-
+            for (int i = 0; i < samples; i++){
                 char *data = getUsers(userFD[1]);
 
-                // char *fin = "finished\n";
-                // write(userFD[1], fin, strlen(fin));
                 write(userFD[1], data, strlen(data));
 
                 free(data);
-
-                close(userFD[1]);
-                exit(EXIT_SUCCESS);
-            } else {
-                close(userFD[1]);
-                char buffer[MAX_STR_LEN];
-                ssize_t bytesRead;
-                
-                printf("### Sessions/users ### \n");
-                if ((bytesRead = read(userFD[0], buffer, MAX_STR_LEN)) > 0){
-                    printf("%.*s", (int)bytesRead, buffer);
-                }
-                printf("---------------------------------------\n");
-
-                if (bytesRead <= 0) {
-                    fprintf(stderr, "Error reading from pipe\n");
-                }
-
-                close(userFD[0]);
-                wait(NULL);
+                sleep(tdelay);
             }
+
+            close(userFD[1]);
+            exit(EXIT_SUCCESS);
         }
-        
-        if (cpu_flag){
-            if (pipe(cpuFD) == -1){
-                perror("PIPE CPU");
-                exit(EXIT_FAILURE);
-            }
-            int pid = fork();
-            if (pid < 0){
-                perror("FORK MEM");
-                exit(EXIT_FAILURE);
-            }else if (pid == 0){
-                close(cpuFD[0]);
-
+    }
+    if (cpu_flag){
+        if (pipe(cpuFD) == -1){
+            perror("PIPE CPU");
+            exit(EXIT_FAILURE);
+        }
+        int pid = fork();
+        if (pid < 0){
+            perror("FORK MEM");
+            exit(EXIT_FAILURE);
+        }else if (pid == 0){
+            close(cpuFD[0]);
+            for (int i = 0; i < samples; i++){
                 double new_cpu[2];
 
                 getCPUUsage(new_cpu);
 
                 write(cpuFD[1], new_cpu, sizeof(double) * 2);
-                close(cpuFD[1]);
-                exit(EXIT_SUCCESS);
-            }else{
-                close(cpuFD[1]);
+                sleep(tdelay);
+            }
+            close(cpuFD[1]);
+            exit(EXIT_SUCCESS);
+        }
+    }
 
+    // close writing end of pipes in parent
+    if (cpu_flag) close(cpuFD[1]);
+    if (system_flag) close(memFD[1]);
+    if (user_flag) close(userFD[1]);
+
+    // preparing terminal for printing results
+    printf(CLEAR_SCREEN);
+    printf(CLEAR_TO_HOME);
+    if (!sequential_flag){
+        // not sequential, iterate samples times and set cursor to home for printing
+        for (int i = 0; i < samples; i++){
+            myStats = initSystemStats();
+            // print running param
+            printf(CLEAR_TO_HOME);
+            printf("Nbr of samples: %d -- every %d secs\n", samples, tdelay);
+            printf("Memory Self-Utilization: %ld KB\n", myStats.self_mem_utl);
+
+            // if system_flag, child process was launched
+            // get info from pipe and print based on flag
+            if (system_flag){
+                double new_mem_usage[4];
+                // check if everything was read from pipe ok
+                // if not send an error to kernel using perror
+                if ((read(memFD[0], new_mem_usage, sizeof(double)* 4)) == -1){
+                    perror("Error reading from mem pipe");
+                    exit(EXIT_FAILURE);
+                }
+                printf("---------------------------------------\n");
+                printf("### Memory ### (Phys.Used/Tot -- Virtual Used/Tot)\n");
+                printf(CLEAR_TO_HOME);
+                printf("\33[%dB", i+4);
+                storeMemUsage(i, new_mem_usage, &mem_usage);
+                if (graphics_flag){
+                    printMemUtilGraphics(i, samples, &mem_usage);
+                }else{
+                    printMemUtil(new_mem_usage);
+                }
+            }
+            // if user_flag, child process was launched
+            // get info from pipe and print based on flag
+            int users = 0; // for print formatting
+            if (user_flag){
+                printf(CLEAR_TO_HOME);
+                if (!system_flag){
+                    printf("\33[%dB", 2);
+                }else{
+                    printf("\33[%dB", samples + 4);
+                }
+                printf("---------------------------------------\n");
+                printf("### Sessions/users ###\n");
+                char buffer[MAX_STR_LEN];
+                ssize_t bytesRead;
+                // read from pipe and makes sure the string length is properly read
+                if ((bytesRead = read(userFD[0], buffer, MAX_STR_LEN)) >= 0){
+                    // // parse for only the user string part with strtok
+                    // char *token;
+                    // const char delimiter = '#';
+                    // token = strtok(buffer, &delimiter);
+                    // 
+                    // printf("%s", token);
+                    printf("%.*s", (int)bytesRead, buffer);
+                    printf("---------------------------------------\n");
+                }else{
+                    perror("Error reading from user pipe");
+                    exit(EXIT_FAILURE);
+                }
+                // added a count of users in string
+                // parse and get from string for formatting
+                char *temp = strstr(buffer, "#");
+                temp++;
+                users = atoi(temp);
+            }
+            
+            if (cpu_flag){
                 double new_cpu[2];
                 if ((read(cpuFD[0], new_cpu, sizeof(double)* 2)) == -1){
                     perror("Error reading from cpu pipe");
                     exit(EXIT_FAILURE);
                 }
-                close(cpuFD[0]);
-                wait(NULL);
-
                 storeCPUUsage(i, new_cpu, &cpu_usage);
-                
+                printf(CLEAR_TO_HOME);
+                printf("\33[%dB", samples+users+7);
                 printCPUInfo(i, samples, &cpu_usage, &myStats);
                 if (graphics_flag){
                     printCPUInfoGraphics(i, samples, &cpu_usage);
@@ -256,10 +286,95 @@ int main(int argc, char ** argv){
                 printf("---------------------------------------\n");
             }
         }
-        sleep(tdelay);
+        printSysInfo(&myStats);
+    }else{
+        for (int i = 0; i < samples; i++){
+            // initiate and populate myStats
+            myStats = initSystemStats();
+            printf(">>> iteration %d\n", i+1);
+            printf("Memory Self-Utilization: %ld KB\n", myStats.self_mem_utl);
+
+            // handle and print mem util if requested
+            if (system_flag){
+                double new_mem_usage[4];
+                // send error if read wrong
+                if ((read(memFD[0], new_mem_usage, sizeof(double)* 4)) == -1){
+                    perror("Error reading from mem pipe");
+                    exit(EXIT_FAILURE);
+                }
+                printf("---------------------------------------\n");
+                printf("### Memory ### (Phys.Used/Tot -- Virtual Used/Tot)\n");
+                // store the information for graphic printing
+                storeMemUsage(i, new_mem_usage, &mem_usage);
+                if (graphics_flag){
+                    // print spacing for sequential printing
+                    for (int j = 0; j < i; j++){
+                        printf("\n");
+                    }
+                    printMemUtilGraphics(i, samples, &mem_usage);
+                    for (int j = i + 1; j < samples; j++){
+                        printf("\n");
+                    }
+                }else{
+                     // print spacing for sequential printing
+                    for (int j = 0; j < i; j++){
+                        printf("\n");
+                    }
+                    printMemUtil(new_mem_usage);
+                    for (int j = i + 1; j < samples; j++){
+                        printf("\n");
+                    }
+                }
+            }
+            // handle and print users in session if requested
+            if (user_flag){
+                printf("---------------------------------------\n");
+                printf("### Sessions/users ###\n");
+                // check bytes read to ensure properly read from the pipe
+                char buffer[MAX_STR_LEN];
+                ssize_t bytesRead;
+                if ((bytesRead = read(userFD[0], buffer, MAX_STR_LEN)) >= 0){
+                    printf("%.*s", (int)bytesRead, buffer);
+                    printf("---------------------------------------\n");
+                }else{
+                    // send error otherwise
+                    perror("Error reading from user pipe");
+                    exit(EXIT_FAILURE);
+                }
+            }
+            // handle and pring cpu util if requested
+            if (cpu_flag){
+                double new_cpu[2];
+                // send error if read wrong
+                if ((read(cpuFD[0], new_cpu, sizeof(double)* 2)) == -1){
+                    perror("Error reading from cpu pipe");
+                    exit(EXIT_FAILURE);
+                }
+
+                // store cpu info for graphics
+                storeCPUUsage(i, new_cpu, &cpu_usage);
+                printCPUInfoSEQ(i, samples, &cpu_usage, &myStats);
+                if (graphics_flag){
+                    printCPUInfoGraphicsSEQ(i, samples, &cpu_usage);
+                }
+                printf("---------------------------------------\n");
+            }
+        }
+        // print system information last
+        printSysInfo(&myStats);
     }
-    printSysInfo(&myStats);
-    
+
+
+    // handle closing the reading of the pipes from parent
+    if (cpu_flag) close(cpuFD[0]);
+    if (system_flag) close(memFD[0]);
+    if (user_flag) close(userFD[0]);
+
+    // collect all the children to prevent pathological states
+    if (cpu_flag) wait(NULL);
+    if (system_flag) wait(NULL);
+    if (user_flag) wait(NULL);
+
     deleteCPU(samples, &cpu_usage);
     deleteMem(samples, &mem_usage);
 
@@ -327,7 +442,6 @@ void printCPUInfoGraphics(int iter, int samples, CPUStruct *cpu_usage){
     for (int i = iter + 1; i < samples; i++){
         printf("\n");
     }
-    // printf("---------------------------------------\n");
 }
 
 void printMemUtilGraphics(int iter, int samples, MemStruct *mem_usage){
@@ -335,64 +449,48 @@ void printMemUtilGraphics(int iter, int samples, MemStruct *mem_usage){
     double cur_mem, pre_mem;
     int difference; 
 
-    printf("### Memory ### (Phys.Used/Tot -- Virtual Used/Tot)\n");
-    for (int i = 0; i < iter + 1; i++){
-        printf("%.2f GB / %.2f GB -- %.2f GB / %.2f GB    %s", 
-                mem_usage->mem_usage[i][MEMUSED], 
-                mem_usage->mem_usage[i][MEMTOT], 
-                mem_usage->mem_usage[i][MEMUSEDVIRT], 
-                mem_usage->mem_usage[i][MEMTOTVIRT],
-                PERCPOS);
-        if (i == 0){
-            // here it's printing the used virtual memory
-            printf("%s %.2f (%.2f)\n", NEUT, (double)ZERO, mem_usage->mem_usage[i][MEMUSEDVIRT]);
-        }else{
-            // getting the difference between the current sample and previous by using virt used memory
-            cur_mem = mem_usage->mem_usage[i][MEMUSEDVIRT];
-            pre_mem = mem_usage->mem_usage[i - 1][MEMUSEDVIRT];
-            util_g = getdifference(cur_mem, pre_mem, &difference);
-            // printf("difference is: %d = %f ", util_g, cur_mem - pre_mem);
+    printf("%.2f GB / %.2f GB -- %.2f GB / %.2f GB    %s", 
+            mem_usage->mem_usage[iter][MEMUSED], 
+            mem_usage->mem_usage[iter][MEMTOT], 
+            mem_usage->mem_usage[iter][MEMUSEDVIRT], 
+            mem_usage->mem_usage[iter][MEMTOTVIRT],
+            PERCPOS);
+    if (iter == 0){
+        // here it's printing the used virtual memory
+        printf("%s %.2f (%.2f)\n", NEUT, (double)ZERO, mem_usage->mem_usage[iter][MEMUSEDVIRT]);
+    }else{
+        // getting the difference between the current sample and previous by using virt used memory
+        cur_mem = mem_usage->mem_usage[iter][MEMUSEDVIRT];
+        pre_mem = mem_usage->mem_usage[iter - 1][MEMUSEDVIRT];
+        util_g = getdifference(cur_mem, pre_mem, &difference);
 
-            if (difference > 0){
-                for (int j = 0; j < util_g; j++){
-                    printf("#");
-                }
-                printf("*");
-            }else{
-                // difference = -1
-                for (int j = 0; j < util_g; j++){
-                    printf(":");
-                }
-                printf("@");
+        if (difference > 0){
+            for (int j = 0; j < util_g; j++){
+                printf("#");
             }
-            printf(" %.2f (%.2f)\n", (double) (util_g / 100), mem_usage->mem_usage[i][MEMUSEDVIRT]);
+            printf("*");
+        }else{
+            // difference = -1
+            for (int j = 0; j < util_g; j++){
+                printf(":");
+            }
+            printf("@");
         }
+        printf(" %.2f (%.2f)\n", (double) (util_g / 100), mem_usage->mem_usage[iter][MEMUSEDVIRT]);
     }
-    for (int i = iter + 1; i < samples; i++){
-        printf("\n");
-    }
-    printf("---------------------------------------\n");
 }
 
 void printCPUInfo(int iter, int samples, CPUStruct *cpu_usage, SystemStats *stats){
-    
     printf("Number of CPU cores: %d\n", stats->cpu_cores);
     printf(" total cpu use: %.2f%%\n", cpu_usage->cpu_usage[iter][CPUUTIL]);
 }
 
-void printMemUtil(int iter, int samples, MemStruct *mem_usage){
-    printf("### Memory ### (Phys.Used/Tot -- Virtual Used/Tot)\n");
-    for (int i = 0; i < iter + 1; i++){
-        printf("%.2f GB / %.2f GB -- %.2f GB / %.2f GB\n", 
-                mem_usage->mem_usage[i][MEMUSED], 
-                mem_usage->mem_usage[i][MEMTOT], 
-                mem_usage->mem_usage[i][MEMUSEDVIRT], 
-                mem_usage->mem_usage[i][MEMTOTVIRT]);
-    }
-    for (int i = iter + 1; i < samples; i++){
-        printf("\n");
-    }
-    printf("---------------------------------------\n");
+void printMemUtil(double mem_usage[4]){
+    printf("%.2f GB / %.2f GB -- %.2f GB / %.2f GB\n", 
+                mem_usage[MEMUSED], 
+                mem_usage[MEMTOT], 
+                mem_usage[MEMUSEDVIRT], 
+                mem_usage[MEMTOTVIRT]);
 }
 
 int getdifference(double cur_mem, double pre_mem, int *difference){
@@ -406,4 +504,35 @@ int getdifference(double cur_mem, double pre_mem, int *difference){
         *difference = -1;
     }
     return (int) (diff * 100); 
+}
+
+
+/* for sequential printing */
+void printCPUInfoGraphicsSEQ(int iter, int samples, CPUStruct *cpu_usage){
+    double util;
+    int util_g;
+
+    for(int i = 0; i < iter + 1; i++){
+        util = cpu_usage->cpu_usage[i][CPUUTIL];
+        util_g = (int) util;
+        if (util == 0){
+            util_g += 2;
+        }else{
+            util_g += 4;
+        }
+        printf("    ");
+        for (int i = 0; i < util_g; i++){
+            printf("%s", PERCPOS);
+        }
+        printf(" %.2f%%\n", util);
+    }
+    for (int i = iter + 1; i < samples; i++){
+        printf("\n");
+    }
+}
+
+void printCPUInfoSEQ(int iter, int samples, CPUStruct *cpu_usage, SystemStats *stats){
+    
+    printf("Number of CPU cores: %d\n", stats->cpu_cores);
+    printf(" total cpu use: %.2f%%\n", cpu_usage->cpu_usage[iter][CPUUTIL]);
 }
